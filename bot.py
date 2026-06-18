@@ -80,7 +80,7 @@ async def on_message(message):
     if (
         message.channel.id == CHAT_CHANNEL
         and now - last_random_message > 3600
-        and random.randint(1, 100) <= 10
+        and random.randint(1, 100) <= 100
     ):
         bot_msg = await message.channel.send(
             random.choice(random_texts)
