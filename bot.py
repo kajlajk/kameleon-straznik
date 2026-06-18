@@ -43,7 +43,7 @@ async def on_message(message):
 
             if warnings[message.author.id] == 1:
                 msg = await message.channel.send(
-                    f"{message.author.mention}, rola @Szukam do gry może być używana tylko na #szukam-do-gry."
+                    f"{message.author.mention}, UWAGAA! Rola Szukam do gry może być używana tylko na Kanale Szukam do gry."
                 )
                 await msg.delete(delay=10)
 
