@@ -31,8 +31,20 @@ async def on_message(message):
     if message.author.bot:
         return
 
-    role_pinged = any(role.id == SZUKAM_ROLE for role in message.role_mentions)
+    if len(message.mentions) > 3:
+        await message.delete()
 
+            try:
+            await message.author.send(
+                "❌ Możesz oznaczyć maksymalnie 3 osoby w jednej wiadomości."
+            )
+        except:
+            pass
+
+        return
+
+    role_pinged = any(role.id == SZUKAM_ROLE for role in message.role_mentions)
+    
     if role_pinged:
 
         # Ping poza #szukam-do-gry
