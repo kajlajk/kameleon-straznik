@@ -41,7 +41,7 @@ async def on_message(message):
             channel = bot.get_channel(CHAT_CHANNEL)
 
             await channel.send(
-                "♿ Spokojnie, bo cię odholuje."
+                "Spokojnie, bo cię odholuje."
             )
 
             await message.delete()
