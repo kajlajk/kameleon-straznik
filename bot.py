@@ -33,36 +33,35 @@ async def on_message(message):
 
     role_pinged = any(role.id == SZUKAM_ROLE for role in message.role_mentions)
 
-    if role_pinged:
+   if role_pinged:
 
-# Ping poza #chat
-if message.channel.id != SZUKAM_CHANNEL:
-    await message.delete()
-
-        warnings[message.author.id] = warnings.get(message.author.id, 0) + 1
+        # Ping poza #szukam-do-gry
+        if message.channel.id != SZUKAM_CHANNEL:
+            await message.delete()
     
-       if warnings[message.author.id] == 1:
-            try:
-               await message.author.send(
-                   f"{message.author.mention}, UWAGAA! Rola Szukam do gry może być używana tylko na Kanale Szukam do gry."
-               )
-           except:
-               pass
-                            
-        elif warnings[message.author.id] == 2:
-            await message.author.timeout(
-                timedelta(minutes=10),
-                reason="Pingowanie roli poza #szukam-do-gry"
-            )
+            warnings[message.author.id] = warnings.get(message.author.id, 0) + 1
     
-        elif warnings[message.author.id] >= 3:
-            await message.author.timeout(
-                timedelta(hours=1),
-                reason="Wielokrotne pingowanie roli poza #szukam-do-gry"
-            )
+            if warnings[message.author.id] == 1:
+                try:
+                    await message.author.send(
+                        f"{message.author.mention}, UWAGAA! Rola Szukam do gry może być używana tylko na Kanale Szukam do gry."
+                    )
+                except:
+                    pass
     
-        return
-
+            elif warnings[message.author.id] == 2:
+                await message.author.timeout(
+                    timedelta(minutes=10),
+                    reason="Pingowanie roli poza #szukam-do-gry"
+                )
+    
+            elif warnings[message.author.id] >= 3:
+                await message.author.timeout(
+                    timedelta(hours=1),
+                    reason="Wielokrotne pingowanie roli poza #szukam-do-gry"
+                )
+    
+            return
         # Cooldown na #szukam-do-gry
         if message.channel.id == SZUKAM_CHANNEL:
             now = time.time()
