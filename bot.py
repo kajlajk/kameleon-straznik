@@ -33,7 +33,7 @@ async def on_message(message):
 
     role_pinged = any(role.id == SZUKAM_ROLE for role in message.role_mentions)
 
-   if role_pinged:
+    if role_pinged:
 
         # Ping poza #szukam-do-gry
         if message.channel.id != SZUKAM_CHANNEL:
