@@ -3,6 +3,7 @@ import discord
 from discord.ext import commands
 import os
 import time
+import random 
 from datetime import timedelta
 
 TOKEN = os.getenv("TOKEN")
@@ -14,6 +15,22 @@ SZUKAM_ROLE = 1515875177852833872
 
 cooldowns = {}
 warnings = {}
+last_random_message = 0
+
+random_texts = [
+    "🦎 Kameleon obserwuje sytuację...",
+    "☕ Ciężka ta praca robota.",
+    "🛡️ Wszystko pod kontrolą.",
+    "👀 Widzę was.",
+    "🌡️ Temperatura czatu w normie.",
+    "📡 Skanuję serwer...",
+    "😴 Chwila spokoju? Podejrzane.",
+    "🦎 Kameleon melduje gotowość.",
+    "🍃 Pamiętajcie o kulturze rozmowy.",
+    "🤔 Ciekawe kto pierwszy napisze na czacie."
+]
+
+
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -31,6 +48,21 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
+
+    global last_random_message
+
+    now = time.time()
+
+    if (
+        message.channel.id == CHAT_CHANNEL
+        and now - last_random_message > 3600
+        and random.randint(1, 50) == 1
+    ):
+        await message.channel.send(
+            random.choice(random_texts)
+        )
+
+        last_random_message = now
 
     if message.content.lower() == "/spokojnie":
         if (
