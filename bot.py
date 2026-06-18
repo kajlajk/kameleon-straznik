@@ -35,31 +35,33 @@ async def on_message(message):
 
     if role_pinged:
 
-        # Ping poza #chat
-        if message.channel.id == CHAT_CHANNEL:
-            await message.delete()
+# Ping poza #chat
+if message.channel.id != SZUKAM_CHANNEL:
+    await message.delete()
 
-            warnings[message.author.id] = warnings.get(message.author.id, 0) + 1
-
-            if warnings[message.author.id] == 1:
-                msg = await message.channel.send(
-                    f"{message.author.mention}, UWAGAA! Rola Szukam do gry może być używana tylko na Kanale Szukam do gry."
-                )
-                await msg.delete(delay=10)
-
-            elif warnings[message.author.id] == 2:
-                await message.author.timeout(
-                    timedelta(minutes=10),
-                    reason="Pingowanie roli poza #szukam-do-gry"
-                )
-
-            elif warnings[message.author.id] >= 3:
-                await message.author.timeout(
-                    timedelta(hours=1),
-                    reason="Wielokrotne pingowanie roli poza #szukam-do-gry"
-                )
-
-            return
+        warnings[message.author.id] = warnings.get(message.author.id, 0) + 1
+    
+       if warnings[message.author.id] == 1:
+            try:
+               await message.author.send(
+                   f"{message.author.mention}, UWAGAA! Rola Szukam do gry może być używana tylko na Kanale Szukam do gry."
+               )
+           except:
+               pass
+                            
+        elif warnings[message.author.id] == 2:
+            await message.author.timeout(
+                timedelta(minutes=10),
+                reason="Pingowanie roli poza #szukam-do-gry"
+            )
+    
+        elif warnings[message.author.id] >= 3:
+            await message.author.timeout(
+                timedelta(hours=1),
+                reason="Wielokrotne pingowanie roli poza #szukam-do-gry"
+            )
+    
+        return
 
         # Cooldown na #szukam-do-gry
         if message.channel.id == SZUKAM_CHANNEL:
