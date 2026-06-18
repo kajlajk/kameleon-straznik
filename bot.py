@@ -16,6 +16,9 @@ SZUKAM_ROLE = 1515875177852833872
 cooldowns = {}
 warnings = {}
 last_random_message = 0
+last_bot_message_id = None
+answered_users = set()
+last_reply_text = None
 
 random_texts = [
     "🦎 Kameleon obserwuje sytuację...",
@@ -28,6 +31,24 @@ random_texts = [
     "🦎 Kameleon melduje gotowość.",
     "🍃 Pamiętajcie o kulturze rozmowy.",
     "🤔 Ciekawe kto pierwszy napisze na czacie."
+]
+
+reply_texts = [
+    "🦎 Trochę kultury.",
+    "👀 To moja praca.",
+    "🛡️ Patrol trwa.",
+    "☕ Nie przeszkadzaj w pracy.",
+    "📋 To trafi do raportu.",
+    "🚨 Spokojnie, bohaterze.",
+    "🦎 Kameleon wszystko widzi.",
+    "🤨 Odważne słowa.",
+    "🍃 Zachowaj spokój.",
+    "📡 Sygnał odebrany.",
+    "👀 Obserwuję sytuację.",
+    "🛡️ Wszystko pod kontrolą.",
+    "😎 Bez paniki.",
+    "📋 Zanotowano.",
+    "🚔 Kontynuuj, słucham."
 ]
 
 
@@ -50,20 +71,48 @@ async def on_message(message):
         return
 
     global last_random_message
+    global last_bot_message_id
+    global answered_users
+    global last_reply_text
 
     now = time.time()
 
     if (
         message.channel.id == CHAT_CHANNEL
         and now - last_random_message > 3600
-        and random.randint(1, 50) == 1
+        and random.randint(1, 100) <= 10
     ):
-        await message.channel.send(
+        bot_msg = await message.channel.send(
             random.choice(random_texts)
         )
 
+        last_bot_message_id = bot_msg.id
+        answered_users = set()
+
         last_random_message = now
 
+    if (
+        message.reference
+        and last_bot_message_id is not None
+        and message.author.id not in answered_users
+    ):
+
+        if message.reference.message_id == last_bot_message_id:
+
+            response = random.choice(reply_texts)
+
+            while (
+                last_reply_text is not None
+                and response == last_reply_text
+            ):
+                response = random.choice(reply_texts)
+
+            await message.reply(response)
+
+            last_reply_text = response
+            answered_users.add(message.author.id)    
+
+ 
     if message.content.lower() == "/spokojnie":
         if (
             message.author.id == OWNER_ID
