@@ -7,6 +7,7 @@ from datetime import timedelta
 
 TOKEN = os.getenv("TOKEN")
 
+OWNER_ID = 765301434350567426
 SZUKAM_CHANNEL = 1515570301172449362
 CHAT_CHANNEL = 1515567593694691413
 SZUKAM_ROLE = 1515875177852833872
@@ -29,6 +30,22 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     if message.author.bot:
+        return
+
+    if message.content.lower() == "/spokojnie":
+        if (
+            message.author.id == OWNER_ID
+            and message.channel.id == 1515593063639285810
+        ):
+
+            channel = bot.get_channel(CHAT_CHANNEL)
+
+            await channel.send(
+                "♿ Spokojnie, bo cię odholuje."
+            )
+
+            await message.delete()
+
         return
 
         if len(message.mentions) > 3:
