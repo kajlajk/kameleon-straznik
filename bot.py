@@ -130,14 +130,14 @@ async def on_message(message):
         return
 
     if len(message.mentions) > 3:
-            await message.delete()
+        await message.delete()
 
-            try:
-                    await message.author.send(
+        try:
+            await message.author.send(
                 "❌ Możesz oznaczyć maksymalnie 3 osoby w jednej wiadomości."
                     )
-            except:
-                    pass
+        except:
+            pass
 
         return
 
