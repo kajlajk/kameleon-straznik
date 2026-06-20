@@ -17,7 +17,7 @@ cooldowns = {}
 warnings = {}
 last_random_message = 0
 last_bot_message_id = None
-answered_users = set()
+answered_users = {}
 last_reply_text = None
 
 random_texts = [
