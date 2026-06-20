@@ -181,7 +181,7 @@ async def on_message(message):
                     await message.delete()
 
                     msg = await message.channel.send(
-                        f"{message.author.mention}, możesz pingować @Szukam do gry tylko raz na 10 minut."
+                        f"{message.author.mention}, możesz pingować @Szukam do gry tylko raz na 20 minut."
                     )
 
                     await msg.delete(delay=10)
