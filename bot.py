@@ -113,7 +113,7 @@ async def on_message(message):
             answered_users.add(message.author.id)    
 
  
-    if message.content.lower() == "/spokojnie":
+    if message.content.lower() =="/spokojnie":
         if (
             message.author.id == OWNER_ID
             and message.channel.id == 1515593063639285810
@@ -129,7 +129,7 @@ async def on_message(message):
 
         return
 
-        if len(message.mentions) > 3:
+    if len(message.mentions) > 3:
             await message.delete()
 
             try:
