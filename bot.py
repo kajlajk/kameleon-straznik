@@ -177,7 +177,7 @@ async def on_message(message):
             now = time.time()
 
             if message.author.id in cooldowns:
-                if now - cooldowns[message.author.id] < 600:
+                if now - cooldowns[message.author.id] < 1200:
                     await message.delete()
 
                     msg = await message.channel.send(
