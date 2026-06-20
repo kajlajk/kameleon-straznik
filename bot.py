@@ -161,7 +161,7 @@ async def on_message(message):
     
             elif warnings[message.author.id] == 2:
                 await message.author.timeout(
-                    timedelta(minutes=10),
+                    timedelta(minutes=20),
                     reason="Pingowanie roli poza #szukam-do-gry"
                 )
     
