@@ -183,29 +183,29 @@ async def on_message(message):
                     await message.author.send(
                         "❌ Aby użyć @Szukam do gry, musisz siedzieć na kanale głosowym."
                     )
-            except:
-                pass
-
-            return
-
-        voice_channel = message.author.voice.channel
-        now = time.time()
-
-        if voice_channel.id in channel_cooldowns:
-            if now - channel_cooldowns[voice_channel.id] < 600:
-
-                await message.delete()
-
-                try:
-                    await message.author.send(
-                        "❌ Ktoś z twojego kanału głosowego użył już @Szukam do gry w ciągu ostatnich 10 minut."
-                    )
                 except:
                     pass
 
                 return
 
-        channel_cooldowns[voice_channel.id] = now            
+                voice_channel = message.author.voice.channel
+                now = time.time()
+    
+                if voice_channel.id in channel_cooldowns:
+                    if now - channel_cooldowns[voice_channel.id] < 600:
+    
+                        await message.delete()
+    
+                        try:
+                            await message.author.send(
+                                "❌ Ktoś z twojego kanału głosowego użył już @Szukam do gry w ciągu ostatnich 10 minut."
+                            )
+                        except:
+                            pass
+    
+                        return
+    
+                channel_cooldowns[voice_channel.id] = now            
             
     await bot.process_commands(message)
 
