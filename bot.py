@@ -188,24 +188,24 @@ async def on_message(message):
 
                 return
 
-                voice_channel = message.author.voice.channel
-                now = time.time()
-    
-                if voice_channel.id in channel_cooldowns:
-                    if now - channel_cooldowns[voice_channel.id] < 1200:
-    
-                        await message.delete()
-    
-                        try:
-                            await message.author.send(
-                                "Ktoś z twojego kanału głosowego użył już @Szukam do gry w ciągu ostatnich 20 minut."
-                            )
-                        except:
-                            pass
-    
-                        return
-    
-                channel_cooldowns[voice_channel.id] = now            
+            voice_channel = message.author.voice.channel
+            now = time.time()
+
+            if voice_channel.id in channel_cooldowns:
+                if now - channel_cooldowns[voice_channel.id] < 1200:
+
+                    await message.delete()
+
+                    try:
+                        await message.author.send(
+                            "Ktoś z twojego kanału głosowego użył już @Szukam do gry w ciągu ostatnich 20 minut."
+                        )
+                    except:
+                        pass
+
+                    return
+
+            channel_cooldowns[voice_channel.id] = now        
             
     await bot.process_commands(message)
 
