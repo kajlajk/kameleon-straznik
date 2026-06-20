@@ -13,7 +13,7 @@ SZUKAM_CHANNEL = 1515570301172449362
 CHAT_CHANNEL = 1515567593694691413
 SZUKAM_ROLE = 1515875177852833872
 
-cooldowns = {}
+channel_cooldowns = {}
 warnings = {}
 last_random_message = 0
 last_bot_message_id = None
@@ -172,23 +172,41 @@ async def on_message(message):
                 )
     
             return
-        # Cooldown na #szukam-do-gry
+
+        # Cooldown na kanał głosowy
         if message.channel.id == SZUKAM_CHANNEL:
-            now = time.time()
 
-            if message.author.id in cooldowns:
-                if now - cooldowns[message.author.id] < 1200:
-                    await message.delete()
+            if not message.author.voice:
+                await message.delete()
 
-                    msg = await message.channel.send(
-                        f"{message.author.mention}, możesz pingować @Szukam do gry tylko raz na 20 minut."
+                try:
+                    await message.author.send(
+                        "❌ Aby użyć @Szukam do gry, musisz siedzieć na kanale głosowym."
                     )
+            except:
+                pass
 
-                    await msg.delete(delay=10)
-                    return
+            return
 
-            cooldowns[message.author.id] = now
+        voice_channel = message.author.voice.channel
+        now = time.time()
 
+        if voice_channel.id in channel_cooldowns:
+            if now - channel_cooldowns[voice_channel.id] < 600:
+
+                await message.delete()
+
+                try:
+                    await message.author.send(
+                        "❌ Ktoś z twojego kanału głosowego użył już @Szukam do gry w ciągu ostatnich 10 minut."
+                    )
+                except:
+                    pass
+
+                return
+
+        channel_cooldowns[voice_channel.id] = now            
+            
     await bot.process_commands(message)
 
 
