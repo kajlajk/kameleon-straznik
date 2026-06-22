@@ -49,6 +49,7 @@ reply_texts = [
     "😎 Bez paniki.",
     "📋 Zanotowano.",
     "🚔 Kontynuuj, słucham."
+    "🤨 Gratulacje, wygrywasz bana."
 ]
 
 
@@ -121,9 +122,39 @@ async def on_message(message):
 
             channel = bot.get_channel(CHAT_CHANNEL)
 
-            await channel.send(
-                "Spokojnie, bo cię odholuje."
-            )
+            teksty = [
+                "🤖 Materiał dowodowy sam się nie zbierze.",
+                "🤖 Proszę kontynuować, raport nie napisze się sam.",
+                "🤖 Administracja z zainteresowaniem śledzi rozwój wydarzeń.",
+                "🤖 Nie przerywajcie, fabuła się zagęszcza.",
+                "🤖 Spokojnie, wszystko trafia do akt.",
+                "🤖 To będzie ciekawy wpis w raporcie.",
+                "🤖 Obserwuję i udaję, że mnie tu nie ma.",
+                "🤖 Interesujący obrót wydarzeń.",
+                "🤖 Ktoś tu gotuje i zaczyna pachnieć dramatem.",
+                "🤖 Raport sytuacyjny został zaktualizowany.",
+                "🤖 Poproszę streszczenie dla spóźnionych.",
+                "🤖 Nie mam kontekstu, ale brzmi poważnie.",
+                "🤖 Ten czat ma potencjał.",
+                "🤖 Zdecydowanie jedna z rozmów wszech czasów.",
+                "🤖 Kulturalnie przypominam, że czytam.",
+                "🤖 Właśnie wszedłem. Co się tu dzieje?",
+                "🤖 Dokumentacja sama się nie uzupełni.",
+                "🤖 Obywatelu, kontynuuj wypowiedź.",
+                "🤖 To może być ważne dla śledztwa.",
+                "🤖 Zbieram materiał do raportu.",
+                "🤖 Ciekawa ta wasza rozmowa.",
+                "🤖 Notuję. Bardzo skrupulatnie notuję.",
+                "🤖 Emocje wykryte. Analizuję sytuację.",
+                "🤖 To będzie długi raport.",
+                "🤖 System monitoringu czatu działa prawidłowo.",
+                "🤖 Administratorzy siedzą z popcornem. 🍿",
+                "🤖 Speedrun do ciekawego wpisu w logach.",
+                "🤖 Wykryto nietypową aktywność użytkowników.",
+                "🤖 Kontynuujcie, jestem zaintrygowany.",
+                "🤖 Kameleon nie ocenia. Kameleon obserwuje. 🦎"
+            ]
+            await channel.send(random.choice(teksty))
 
             await message.delete()
 
@@ -134,7 +165,7 @@ async def on_message(message):
 
         try:
             await message.author.send(
-                "❌ Możesz oznaczyć maksymalnie 3 osoby w jednej wiadomości."
+                "Możesz oznaczyć maksymalnie 3 osoby w jednej wiadomości."
                     )
         except:
             pass
@@ -154,7 +185,7 @@ async def on_message(message):
             if warnings[message.author.id] == 1:
                 try:
                     await message.author.send(
-                        f"{message.author.mention}, UWAGAA! Rola Szukam do gry może być używana tylko na Kanale Szukam do gry."
+                        f"{message.author.mention} Rola Szukam do gry może być używana tylko na kanale Szukam do gry."
                     )
                 except:
                     pass
