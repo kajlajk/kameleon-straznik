@@ -48,7 +48,7 @@ reply_texts = [
     "🛡️ Wszystko pod kontrolą.",
     "😎 Bez paniki.",
     "📋 Zanotowano.",
-    "🚔 Kontynuuj, słucham."
+    "🚔 Kontynuuj, słucham.",
     "🤨 Gratulacje, wygrywasz bana."
 ]
 
