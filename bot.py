@@ -17,7 +17,7 @@ channel_cooldowns = {}
 warnings = {}
 last_random_message = 0
 last_bot_message_id = None
-answered_users = set()
+answered_users = {}
 last_reply_text = None
 
 random_texts = [
@@ -92,27 +92,37 @@ async def on_message(message):
 
         last_random_message = now
 
-    if (
-        message.reference
-        and last_bot_message_id is not None
-        and message.author.id not in answered_users
-    ):
+    if message.reference:
 
-        if message.reference.message_id == last_bot_message_id:
+        try:
+            replied_message = await message.channel.fetch_message(
+                message.reference.message_id
+            )
 
-            response = random.choice(reply_texts)
+            if replied_message.author.id == bot.user.id:
 
-            while (
-                last_reply_text is not None
-                and response == last_reply_text
-            ):
-                response = random.choice(reply_texts)
+                replied_id = replied_message.id
 
-            await message.reply(response)
+                if replied_id not in answered_users:
+                    answered_users[replied_id] = set()
 
-            last_reply_text = response
-            answered_users.add(message.author.id)    
+                if message.author.id not in answered_users[replied_id]:
 
+                    response = random.choice(reply_texts)
+
+                    while (
+                        last_reply_text is not None
+                        and response == last_reply_text
+                    ):
+                        response = random.choice(reply_texts)
+
+                    await message.reply(response)
+
+                    last_reply_text = response
+                    answered_users[replied_id].add(message.author.id)
+
+        except:
+            pass    
  
     if message.content.lower() =="/spokojnie":
         if (
