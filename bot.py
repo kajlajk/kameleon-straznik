@@ -121,8 +121,8 @@ async def on_message(message):
                     last_reply_text = response
                     answered_users[replied_id].add(message.author.id)
 
-        except:
-            pass    
+        except Exception as e:
+            print(f"Błąd odpowiedzi: {e}")   
  
     if message.content.lower() =="/spokojnie":
         if (
