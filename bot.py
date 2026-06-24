@@ -93,6 +93,7 @@ async def on_message(message):
         last_random_message = now
 
     if message.reference:
+        print("DEBUG 1")
 
         try:
             replied_message = await message.channel.fetch_message(
@@ -100,6 +101,7 @@ async def on_message(message):
             )
 
             if replied_message.author.id == bot.user.id:
+                print("DEBUG 2")
 
                 replied_id = replied_message.id
 
@@ -107,6 +109,7 @@ async def on_message(message):
                     answered_users[replied_id] = set()
 
                 if message.author.id not in answered_users[replied_id]:
+                    print("DEBUG 3")
 
                     response = random.choice(reply_texts)
 
@@ -117,6 +120,7 @@ async def on_message(message):
                         response = random.choice(reply_texts)
 
                     await message.reply(response)
+                    print("DEBUG 4")
 
                     last_reply_text = response
                     answered_users[replied_id].add(message.author.id)
