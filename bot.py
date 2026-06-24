@@ -119,8 +119,9 @@ async def on_message(message):
                     ):
                         response = random.choice(reply_texts)
 
-                    await message.reply(response)
                     print("DEBUG 4")
+                    await message.reply(response)
+                    print("DEBUG 5")
 
                     last_reply_text = response
                     answered_users[replied_id].add(message.author.id)
