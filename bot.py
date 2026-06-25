@@ -50,7 +50,7 @@ reply_texts = [
     "😎 Bez paniki.",
     "📋 Zanotowano.",
     "🚔 Kontynuuj, słucham.",
-    "🤨 Gratulacje, wygrywasz bana."
+    "🤨 Aha Gratulacje, wygrywasz bana."
 ]
 
 
@@ -91,7 +91,6 @@ async def on_message(message):
         if media:
             try:
                 await message.add_reaction("👍")
-                await message.add_reaction("🔥")
                 await message.add_reaction("😂")
                 await message.add_reaction("❤️")
             except discord.Forbidden:
