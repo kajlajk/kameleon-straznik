@@ -14,6 +14,9 @@ CHAT_CHANNEL = 1515567593694691413
 SZUKAM_ROLE = 1515875177852833872
 SCREENY_CHANNEL = 1515570115515650068  
 
+STARTIT_BOT_ID = 572906387382861835
+LEVEL_ROLE_ID = 1519681923578990642
+
 channel_cooldowns = {}
 warnings = {}
 last_random_message = 0
@@ -70,6 +73,48 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     if message.author.bot:
+
+    # Obsługa wiadomości od StartIT
+        if message.author.id == STARTIT_BOT_ID:
+
+            try:
+
+                if "zdobył(a)" in message.content:
+
+                    tekst = message.content.split("siłę!")[1].strip()
+
+                    nick = tekst.split("zdobył(a)")[0].strip()
+                    level = tekst.split("zdobył(a)")[1].split("poziom")[0].strip()
+
+                    print(f"[LEVEL] Nick z wiadomości: {nick}")
+                    print(f"[LEVEL] Poziom: {level}")
+
+                    member = discord.utils.find(
+                        lambda m:
+                        m.display_name.lower() == nick.lower()
+                        or m.name.lower() == nick.lower(),
+                        message.guild.members
+                    )
+
+                    if member is None:
+                        print("[LEVEL] Nie znaleziono użytkownika.")
+                        return
+
+                    print(f"[LEVEL] Znaleziono: {member}")
+
+                    role = message.guild.get_role(LEVEL_ROLE_ID)
+
+                    if role not in member.roles:
+                        print("[LEVEL] Użytkownik nie ma roli Levele.")
+                        return
+
+                    await message.channel.send(
+                        f"🎉 Gratulacje {member.mention} za zdobycie **{level} poziomu!** 🦎"
+                    )
+
+            except Exception as e:
+                print(f"[LEVEL] Błąd: {e}")
+
         return
 
         
