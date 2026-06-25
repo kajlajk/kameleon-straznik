@@ -20,9 +20,35 @@ LEVEL_ROLE_ID = 1519678728438026321
 channel_cooldowns = {}
 warnings = {}
 last_random_message = 0
-last_bot_message_id = None
 answered_users = {}
 last_reply_text = None
+level_messages = [
+    "🎉 Gratulacje {mention} za zdobycie **{level} poziomu!** 🦎",
+    "⭐ Brawo {mention}! Właśnie osiągnąłeś **{level} poziom**!",
+    "🔥 Świetna robota {mention}! Kolejny poziom zdobyty!",
+    "🎊 {mention}, gratulacje! Już **{level} poziom**! Tak trzymaj!",
+    "💚 Kameleon jest z Ciebie dumny, {mention}! Wbiłeś **{level} poziom**!",
+    "🚀 {mention}, wskakujesz na **{level} poziom**! Gratulacje!",
+    "🏆 Brawo {mention}! Zdobyłeś **{level} poziom**!",
+    "✨ {mention}, kolejny level za Tobą! Gratulacje!",
+    "🎯 Świetna robota {mention}! Osiągnąłeś **{level} poziom**!"
+]
+
+rare_level_messages = [
+    "👑 **LEGENDARNE!** {mention} właśnie zdobył **{level} poziom**! 🎉",
+    "🌟 **Ale sztos!** {mention} awansował na **{level} poziom**!",
+    "⚡ **Kameleon jest pod ogromnym wrażeniem!** {mention} osiągnął **{level} poziom**!",
+    "💎 **Wyjątkowy moment!** {mention} właśnie wbił **{level} poziom**! 🚀",
+    "🔥 **To trzeba uczcić!** {mention} zdobył **{level} poziom**! 🥳"
+]
+
+level_rewards = {
+    10: "🦎 Aktywny Kameleon",
+    25: "🐉 Doświadczony Kameleon",
+    55: "🦚 Mistrz Kamuflażu",
+    80: "👑 Król Kamuflażu",
+    120: "🏆 Legenda MECCHA"
+}
 
 random_texts = [
     "🦎 Kameleon obserwuje sytuację...",
@@ -108,9 +134,28 @@ async def on_message(message):
                         print("[LEVEL] Użytkownik nie ma roli Levele.")
                         return
 
-                    await message.channel.send(
-                        f"🎉 Gratulacje {member.mention} za zdobycie **{level} poziomu!** 🦎"
-                    )
+                    level_int = int(level)
+
+                    if level_int in level_rewards:
+
+                        await message.channel.send(
+                            f"🎉 Gratulacje {member.mention}!\n\n"
+                            f"Właśnie zdobyłeś **{level_int} poziom** i odblokowałeś rangę **{level_rewards[level_int]}**! 🏆"
+                          )
+
+                    else:
+    
+                        if random.randint(1, 100) <= 5:
+                            tekst = random.choice(rare_level_messages)
+                        else:
+                            tekst = random.choice(level_messages)
+
+                        await message.channel.send(
+                            tekst.format(
+                                mention=member.mention,
+                                level=level_int
+                            )
+                        )
 
             except Exception as e:
                 print(f"[LEVEL] Błąd: {e}")
@@ -144,7 +189,6 @@ async def on_message(message):
                 pass
 
     global last_random_message
-    global last_bot_message_id
     global answered_users
     global last_reply_text
 
