@@ -12,6 +12,7 @@ OWNER_ID = 765301434350567426
 SZUKAM_CHANNEL = 1515570301172449362
 CHAT_CHANNEL = 1515567593694691413
 SZUKAM_ROLE = 1515875177852833872
+SCREENY_CHANNEL = 1515570115515650068  
 
 channel_cooldowns = {}
 warnings = {}
@@ -70,6 +71,33 @@ async def on_ready():
 async def on_message(message):
     if message.author.bot:
         return
+
+        
+    if message.channel.id == SCREENY_CHANNEL:
+
+        content = message.content.lower()
+
+        media = (
+            len(message.attachments) > 0
+            or "medal.tv" in content
+            or "medal.com" in content
+            or "youtu.be" in content
+            or "youtube.com" in content
+            or "clips.twitch.tv" in content
+            or "tiktok.com" in content
+            or "streamable.com" in content
+        )
+
+        if media:
+            try:
+                await message.add_reaction("👍")
+                await message.add_reaction("🔥")
+                await message.add_reaction("😂")
+                await message.add_reaction("❤️")
+            except discord.Forbidden:
+                pass
+            except discord.HTTPException:
+                pass
 
     global last_random_message
     global last_bot_message_id
