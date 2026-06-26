@@ -20,7 +20,7 @@ LEVEL_ROLE_ID = 1519678728438026321
 channel_cooldowns = {}
 warnings = {}
 last_random_message = 0
-answered_users = {}
+answered_users = set()
 last_reply_text = None
 level_messages = [
     "🎉 Gratulacje {mention} za zdobycie **{level} poziomu!** 🦎",
@@ -204,12 +204,11 @@ async def on_message(message):
         )
 
         last_bot_message_id = bot_msg.id
-        answered_users = {}
+        answered_users.clear()
 
         last_random_message = now
 
-    if message.reference:
-        
+    if message.reference:   
 
         try:
             replied_message = await message.channel.fetch_message(
@@ -218,14 +217,7 @@ async def on_message(message):
 
             if replied_message.author.id == bot.user.id:
                 
-
-                replied_id = replied_message.id
-
-                if replied_id not in answered_users:
-                    answered_users[replied_id] = set()
-
-                if message.author.id not in answered_users[replied_id]:
-                    
+                if message.author.id not in answered_users:
 
                     response = random.choice(reply_texts)
 
@@ -235,12 +227,11 @@ async def on_message(message):
                     ):
                         response = random.choice(reply_texts)
 
-                    
                     await message.reply(response)
-                    
 
                     last_reply_text = response
-                    answered_users[replied_id].add(message.author.id)
+                    answered_users.add(message.author.id)
+
 
         except Exception as e:
             print(f"Błąd odpowiedzi: {e}")   
