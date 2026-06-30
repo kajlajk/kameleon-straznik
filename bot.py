@@ -372,6 +372,14 @@ async def on_message(message):
 @tasks.loop(seconds=5)
 async def check_timeouts():
     global last_timeout_entry
+   
+    if last_timeout_entry is None:
+        async for entry in bot.guilds[0].audit_logs(
+            limit=1,
+            action=discord.AuditLogAction.member_update
+        ):
+            last_timeout_entry = entry.id
+            return
 
     guild = bot.guilds[0]
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
