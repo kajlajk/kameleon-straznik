@@ -364,6 +364,7 @@ async def on_message(message):
     await bot.process_commands(message)
     @bot.event
     async def on_member_update(before, after):
+        print("WYKRYTO ZMIANĘ UŻYTKOWNIKA")
         if before.timed_out_until != after.timed_out_until:
     
             log_channel = bot.get_channel(LOG_CHANNEL_ID)
