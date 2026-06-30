@@ -94,6 +94,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 @bot.event
 async def on_ready():
+    print("NOWA WERSJA BOTA")
     print(f"Zalogowano jako {bot.user}")
 
 
@@ -362,9 +363,14 @@ async def on_message(message):
             channel_cooldowns[voice_channel.id] = now        
             
     await bot.process_commands(message)
+   
     @bot.event
     async def on_member_update(before, after):
-        print("WYKRYTO ZMIANĘ UŻYTKOWNIKA")
+        print("========== MEMBER UPDATE ==========")
+        print(before.timed_out_until)
+        print(after.timed_out_until)
+        print(after)
+      
         if before.timed_out_until != after.timed_out_until:
     
             log_channel = bot.get_channel(LOG_CHANNEL_ID)
