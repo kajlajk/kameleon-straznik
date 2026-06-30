@@ -5,6 +5,7 @@ import os
 import time
 import random 
 from datetime import timedelta, datetime, timezone
+from discord.ext import tasks
 
 TOKEN = os.getenv("TOKEN")
 
@@ -23,6 +24,7 @@ warnings = {}
 last_random_message = 0
 answered_users = set()
 last_reply_text = None
+last_timeout_entry = None
 level_messages = [
     "🎉 Gratulacje {mention} za zdobycie **{level} poziomu!** 🦎",
     "⭐ Brawo {mention}! Właśnie osiągnąłeś **{level} poziom**!",
@@ -97,6 +99,9 @@ async def on_ready():
     print("NOWA WERSJA BOTA")
     print(f"Zalogowano jako {bot.user}")
 
+    if not check_timeouts.is_running():
+        check_timeouts.start()
+    
 
 @bot.event
 async def on_message(message):
@@ -364,87 +369,65 @@ async def on_message(message):
             
     await bot.process_commands(message)
    
-    @bot.event
-    async def on_member_update(before, after):
-        print("========== MEMBER UPDATE ==========")
-        print(before.timed_out_until)
-        print(after.timed_out_until)
-        print(after)
-      
-        if before.timed_out_until != after.timed_out_until:
-    
-            log_channel = bot.get_channel(LOG_CHANNEL_ID)
-            if not log_channel:
-                return
-    
-            moderator = None
-            reason = "Brak powodu"
-    
-            async for entry in after.guild.audit_logs(
-                limit=5,
-                action=discord.AuditLogAction.member_update
-            ):
-                if entry.target.id == after.id:
-                    moderator = entry.user
-                    reason = entry.reason or "Brak powodu"
-                    break
-    
-            if after.timed_out_until:
-    
-                remaining = after.timed_out_until - datetime.now(timezone.utc)
-                minutes = int(remaining.total_seconds() // 60)
-    
-                embed = discord.Embed(
-                    title="🔇 Nadano timeout",
-                    color=discord.Color.orange()
-                )
-    
-                embed.add_field(
-                    name="👤 Użytkownik",
-                    value=after.mention,
-                    inline=False
-                )
-    
-                embed.add_field(
-                    name="🛡️ Moderator",
-                    value=moderator.mention if moderator else "Nieznany",
-                    inline=False
-                )
-    
-                embed.add_field(
-                    name="⏰ Czas",
-                    value=f"{minutes} minut",
-                    inline=False
-                )
-    
-                embed.add_field(
-                    name="📝 Powód",
-                    value=reason,
-                    inline=False
-                )
-    
-                await log_channel.send(embed=embed)
-    
-            elif before.timed_out_until:
-    
-                embed = discord.Embed(
-                    title="🔓 Zdjęto timeout",
-                    color=discord.Color.green()
-                )
-    
-                embed.add_field(
-                    name="👤 Użytkownik",
-                    value=after.mention,
-                    inline=False
-                )
-    
-                embed.add_field(
-                    name="🛡️ Moderator",
-                    value=moderator.mention if moderator else "Nieznany",
-                    inline=False
-                )
-    
-                await log_channel.send(embed=embed)
+@tasks.loop(seconds=5)
+async def check_timeouts():
+    global last_timeout_entry
+
+    guild = bot.guilds[0]
+    log_channel = bot.get_channel(LOG_CHANNEL_ID)
+
+    if log_channel is None:
+        return
+
+    async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.member_update):
+
+        if last_timeout_entry == entry.id:
+            return
+
+        # Interesują nas tylko timeouty
+        if entry.after.timed_out_until is None:
+            return
+
+        last_timeout_entry = entry.id
+
+        moderator = entry.user
+        user = entry.target
+        reason = entry.reason or "Brak powodu"
+
+        until = entry.after.timed_out_until
+        remaining = until - datetime.now(timezone.utc)
+        minutes = int(remaining.total_seconds() // 60)
+
+        embed = discord.Embed(
+            title="🔇 Nadano timeout",
+            color=discord.Color.orange()
+        )
+
+        embed.add_field(
+            name="👤 Użytkownik",
+            value=user.mention,
+            inline=False
+        )
+
+        embed.add_field(
+            name="🛡️ Moderator",
+            value=moderator.mention,
+            inline=False
+        )
+
+        embed.add_field(
+            name="⏰ Czas",
+            value=f"{minutes} minut",
+            inline=False
+        )
+
+        embed.add_field(
+            name="📝 Powód",
+            value=reason,
+            inline=False
+        )
+
+        await log_channel.send(embed=embed)
 
 
 bot.run(TOKEN)
