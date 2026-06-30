@@ -14,7 +14,7 @@ SZUKAM_CHANNEL = 1515570301172449362
 CHAT_CHANNEL = 1515567593694691413
 SZUKAM_ROLE = 1515875177852833872
 SCREENY_CHANNEL = 1515570115515650068  
-LOG_CHANNEL_ID = 1516298232785928252
+LOG_CHANNEL_ID = 1521585275229442178
 
 STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
@@ -453,6 +453,22 @@ async def check_timeouts():
 
         timestamp = int(timed_out_until.timestamp())
 
+        remaining = timed_out_until - datetime.now(timezone.utc)
+        seconds = int(remaining.total_seconds())
+        
+        if seconds <= 70:
+            duration = "60 sekund"
+        elif seconds <= 310:
+            duration = "5 minut"
+        elif seconds <= 610:
+            duration = "10 minut"
+        elif seconds <= 3610:
+            duration = "1 godzina"
+        elif seconds <= 86410:
+            duration = "1 dzień"
+        else:
+            duration = "1 tydzień"
+    
         embed = discord.Embed(
             title="🔇 Nadano timeout",
             color=discord.Color.orange()
@@ -470,8 +486,14 @@ async def check_timeouts():
         )
 
         embed.add_field(
-            name="🛡️ Moderator",
+            name="🛡️ Pomocnik",
             value=moderator.mention,
+            inline=False
+        )
+
+        embed.add_field(
+            name="⏳ Czas",
+            value=duration,
             inline=False
         )
 
