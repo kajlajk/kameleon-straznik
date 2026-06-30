@@ -4,7 +4,7 @@ from discord.ext import commands
 import os
 import time
 import random 
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 
 TOKEN = os.getenv("TOKEN")
 
@@ -13,6 +13,7 @@ SZUKAM_CHANNEL = 1515570301172449362
 CHAT_CHANNEL = 1515567593694691413
 SZUKAM_ROLE = 1515875177852833872
 SCREENY_CHANNEL = 1515570115515650068  
+LOG_CHANNEL_ID = 1516298232785928252
 
 STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
@@ -361,6 +362,82 @@ async def on_message(message):
             channel_cooldowns[voice_channel.id] = now        
             
     await bot.process_commands(message)
+    @bot.event
+    async def on_member_update(before, after):
+        if before.timed_out_until != after.timed_out_until:
+    
+            log_channel = bot.get_channel(LOG_CHANNEL_ID)
+            if not log_channel:
+                return
+    
+            moderator = None
+            reason = "Brak powodu"
+    
+            async for entry in after.guild.audit_logs(
+                limit=5,
+                action=discord.AuditLogAction.member_update
+            ):
+                if entry.target.id == after.id:
+                    moderator = entry.user
+                    reason = entry.reason or "Brak powodu"
+                    break
+    
+            if after.timed_out_until:
+    
+                remaining = after.timed_out_until - datetime.now(timezone.utc)
+                minutes = int(remaining.total_seconds() // 60)
+    
+                embed = discord.Embed(
+                    title="🔇 Nadano timeout",
+                    color=discord.Color.orange()
+                )
+    
+                embed.add_field(
+                    name="👤 Użytkownik",
+                    value=after.mention,
+                    inline=False
+                )
+    
+                embed.add_field(
+                    name="🛡️ Moderator",
+                    value=moderator.mention if moderator else "Nieznany",
+                    inline=False
+                )
+    
+                embed.add_field(
+                    name="⏰ Czas",
+                    value=f"{minutes} minut",
+                    inline=False
+                )
+    
+                embed.add_field(
+                    name="📝 Powód",
+                    value=reason,
+                    inline=False
+                )
+    
+                await log_channel.send(embed=embed)
+    
+            elif before.timed_out_until:
+    
+                embed = discord.Embed(
+                    title="🔓 Zdjęto timeout",
+                    color=discord.Color.green()
+                )
+    
+                embed.add_field(
+                    name="👤 Użytkownik",
+                    value=after.mention,
+                    inline=False
+                )
+    
+                embed.add_field(
+                    name="🛡️ Moderator",
+                    value=moderator.mention if moderator else "Nieznany",
+                    inline=False
+                )
+    
+                await log_channel.send(embed=embed)
 
 
 bot.run(TOKEN)
