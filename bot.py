@@ -372,14 +372,6 @@ async def on_message(message):
 @tasks.loop(seconds=5)
 async def check_timeouts():
     global last_timeout_entry
-   
-    if last_timeout_entry is None:
-        async for entry in bot.guilds[0].audit_logs(
-            limit=1,
-            action=discord.AuditLogAction.member_update
-        ):
-            last_timeout_entry = entry.id
-            return
 
     guild = bot.guilds[0]
     log_channel = bot.get_channel(LOG_CHANNEL_ID)
@@ -387,13 +379,22 @@ async def check_timeouts():
     if log_channel is None:
         return
 
-    async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.member_update):
+    # Przy pierwszym uruchomieniu zapamiętaj ostatni wpis,
+    # aby nie wysyłać starych timeoutów.
+    if last_timeout_entry is None:
+        async for entry in guild.audit_logs(
+            limit=1,
+            action=discord.AuditLogAction.member_update
+        ):
+            last_timeout_entry = entry.id
+        return
 
-        if last_timeout_entry == entry.id:
-            return
+    async for entry in guild.audit_logs(
+        limit=1,
+        action=discord.AuditLogAction.member_update
+    ):
 
-        # Interesują nas tylko timeouty
-        if entry.after.timed_out_until is None:
+        if entry.id == last_timeout_entry:
             return
 
         last_timeout_entry = entry.id
@@ -402,13 +403,64 @@ async def check_timeouts():
         user = entry.target
         reason = entry.reason or "Brak powodu"
 
-        until = entry.after.timed_out_until
-        remaining = until - datetime.now(timezone.utc)
-        minutes = int(remaining.total_seconds() // 60)
+        timed_out_until = entry.after.timed_out_until
+
+        # ==========================
+        # Zdjęto timeout
+        # ==========================
+        if timed_out_until is None:
+
+            embed = discord.Embed(
+                title="🔓 Zdjęto timeout",
+                color=discord.Color.green()
+            )
+
+            embed.set_author(
+                name=str(user),
+                icon_url=user.display_avatar.url
+            )
+
+            embed.add_field(
+                name="👤 Użytkownik",
+                value=user.mention,
+                inline=False
+            )
+
+            embed.add_field(
+                name="🛡️ Moderator",
+                value=moderator.mention,
+                inline=False
+            )
+
+            embed.add_field(
+                name="📝 Powód",
+                value=reason,
+                inline=False
+            )
+
+            embed.timestamp = datetime.now(timezone.utc)
+
+            embed.set_footer(
+                text=f"ID użytkownika: {user.id}"
+            )
+
+            await log_channel.send(embed=embed)
+            return
+
+        # ==========================
+        # Nadano timeout
+        # ==========================
+
+        timestamp = int(timed_out_until.timestamp())
 
         embed = discord.Embed(
             title="🔇 Nadano timeout",
             color=discord.Color.orange()
+        )
+
+        embed.set_author(
+            name=str(user),
+            icon_url=user.display_avatar.url
         )
 
         embed.add_field(
@@ -424,8 +476,8 @@ async def check_timeouts():
         )
 
         embed.add_field(
-            name="⏰ Czas",
-            value=f"{minutes} minut",
+            name="🕒 Wygasa",
+            value=f"<t:{timestamp}:F>",
             inline=False
         )
 
@@ -433,6 +485,12 @@ async def check_timeouts():
             name="📝 Powód",
             value=reason,
             inline=False
+        )
+
+        embed.timestamp = datetime.now(timezone.utc)
+
+        embed.set_footer(
+            text=f"ID użytkownika: {user.id}"
         )
 
         await log_channel.send(embed=embed)
