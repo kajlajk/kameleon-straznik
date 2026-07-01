@@ -1,6 +1,6 @@
 from .views import TempVoiceView
-import discord
 
+import discord
 from discord.ext import commands
 
 from .config import *
