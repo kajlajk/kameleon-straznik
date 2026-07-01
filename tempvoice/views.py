@@ -1,6 +1,6 @@
 import discord
 from .modals import RenameModal, LimitModal
-
+from .selects import KickUserView
 
 class TempVoicePanel(discord.ui.View):
     def __init__(self, voice_channel_id, text_channel_id, owner_id):
@@ -107,8 +107,24 @@ class TempVoicePanel(discord.ui.View):
         row=1
     )
     async def kick(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        voice_channel = interaction.guild.get_channel(self.voice_channel_id)
+    
+        if voice_channel is None:
+            await interaction.response.send_message(
+                "❌ Nie znaleziono kanału.",
+                ephemeral=True
+            )
+            return
+    
+        view = KickUserView(
+            voice_channel,
+            interaction.user
+        )
+    
         await interaction.response.send_message(
-            "👢 Kliknięto Wyrzuć",
+            "👢 Wybierz użytkownika do wyrzucenia.",
+            view=view,
             ephemeral=True
         )
 
