@@ -100,6 +100,29 @@ class TempVoiceManager(commands.Cog):
         self.db.set_panel_message(channel.id, message.id)
         self.db.set_panel_channel(channel.id, panel_channel.id)
 
+class TempVoiceManager(commands.Cog):
+
+    def __init__(self, bot):
+        ...
+
+    async def create_room(...):
+        ...
+
+    async def delete_room(...):
+        ...
+
+    async def transfer_owner(...):
+        ...
+
+    async def send_panel(...):
+        ...
+
+    async def update_panel(...):   👈 TU WKLEJ
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(...):
+        ...
+    
     # ==========================================
     # VOICE UPDATE
     # ==========================================
