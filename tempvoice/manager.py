@@ -121,12 +121,13 @@ class TempVoice(commands.Cog):
                     except discord.Forbidden:
                         pass
         
-                    # Zaktualizuj panel
+                    # Zaktualizuj panel (PRAWIDŁOWY SPOSÓB)
                     try:
                         panel_message = await text_channel.fetch_message(
                             channel_data["panel_message"]
                         )
             
+                        # Tworzymy nowy wygląd embeda z nowym właścicielem
                         embed = discord.Embed(
                             title="🎛 Zarządzanie kanałem",
                             description="Użyj przycisków poniżej, aby zarządzać swoim kanałem.",
@@ -139,21 +140,8 @@ class TempVoice(commands.Cog):
                             inline=False
                         )
             
-                        # Usuń stary panel
-                        await panel_message.delete()
-                    
-                        # Wyślij nowy panel
-                        new_panel = await text_channel.send(
-                            embed=embed,
-                            view=TempVoicePanel(
-                                before.channel.id,
-                                text_channel.id,
-                                new_owner.id
-                            )
-                        )
-                    
-                        # Zapisz ID nowego panelu
-                        channel_data["panel_message"] = new_panel.id
+                        # Edytujemy wyłącznie treść Embedu. Oryginalny View zostaje nienaruszony.
+                        await panel_message.edit(embed=embed)
                     
                     except (discord.NotFound, discord.Forbidden):
                         pass
