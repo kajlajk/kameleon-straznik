@@ -2,6 +2,7 @@
 import discord
 from discord.ext import commands
 import os
+import asyncio
 import time
 import random 
 from datetime import timedelta, datetime, timezone
@@ -518,5 +519,10 @@ async def check_timeouts():
         await log_channel.send(embed=embed)
 
 
-bot.run(TOKEN)
+async def main():
+    async with bot:
+        await bot.load_extension("tempvoice.manager")
+        await bot.start(TOKEN)
+
+asyncio.run(main())
 
