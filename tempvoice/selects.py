@@ -1,63 +1,88 @@
 import discord
-
 from .data import temp_channels
 
-
-class KickSelect(discord.ui.Select):
-    def __init__(self, voice_channel_id):
-
-        self.voice_channel_id = voice_channel_id
-
+class KickUserSelect(discord.ui.Select):
+    def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
         options = []
-
-        super().__init__(
-            placeholder="Wybierz użytkownika...",
-            min_values=1,
-            max_values=1,
-            options=options
-        )
+        
+        # Filtrowanie użytkowników: tylko osoby na tym kanale, bez właściciela i bez botów
+        for member in voice_channel.members:
+            if member.id != owner.id and not member.bot:
+                options.append(discord.SelectOption(
+                    label=member.display_name,
+                    value=str(member.id),
+                    description=f"@{member.name}"
+                ))
+        
+        # Zapobieganie błędowi pustej listy w discord.ui.Select
+        if not options:
+            options.append(discord.SelectOption(
+                label="Brak użytkowników do wyrzucenia",
+                value="none"
+            ))
+            super().__init__(
+                placeholder="Kanał jest pusty...", 
+                min_values=1, 
+                max_values=1, 
+                options=options, 
+                disabled=True
+            )
+        else:
+            super().__init__(
+                placeholder="Wybierz użytkownika, którego chcesz wyrzucić...", 
+                min_values=1, 
+                max_values=1, 
+                options=options
+            )
+            
+        self.voice_channel = voice_channel
+        
 
     async def callback(self, interaction: discord.Interaction):
-
-        channel = interaction.guild.get_channel(self.voice_channel_id)
-
-        if channel is None:
-            await interaction.response.send_message(
-                "❌ Nie znaleziono kanału.",
-                ephemeral=True
-            )
+        if self.values[0] == "none":
+            await interaction.response.send_message("Nie możesz wykonać tej akcji.", ephemeral=True)
             return
 
-        member = interaction.guild.get_member(int(self.values[0]))
-
-        if member is None:
-            await interaction.response.send_message(
-                "❌ Nie znaleziono użytkownika.",
-                ephemeral=True
-            )
+        member_id = int(self.values[0])
+        member = self.voice_channel.guild.get_member(member_id)
+        
+        if not member:
+            await interaction.response.send_message("Nie znaleziono użytkownika na serwerze.", ephemeral=True)
             return
 
-        await member.move_to(None)
+        # Sprawdzenie, czy użytkownik nadal znajduje się na kanale głosowym
+        if member not in self.voice_channel.members:
+            await interaction.response.send_message("Ten użytkownik zdążył już opuścić kanał.", ephemeral=True)
+            return
 
-        await channel.set_permissions(
-            member,
-            connect=False
-        )
+        try:
+            # 1. Rozłączenie użytkownika z kanału głosowego
+            await member.move_to(None, reason="Wyrzucony przez właściciela kanału TempVoice.")
+            
+            # 2. Zablokowanie możliwości ponownego wejścia (connect=False) dla tego konkretnego użytkownika
+            await self.voice_channel.set_permissions(member, connect=False, reason="Ban na kanał TempVoice.")
+            
+            # 3. Zapis ID użytkownika do listy zbanowanych w temp_channels
+            if self.voice_channel.id in temp_channels:
+                temp_channels[self.voice_channel.id]["banned"].add(member_id)
 
-        temp_channels[self.voice_channel_id]["banned"].add(member.id)
+            await interaction.response.send_message(f"Pomyślnie wyrzucono i zablokowano użytkownika {member.mention}.", ephemeral=True)
+            
+        except discord.Forbidden:
+            await interaction.response.send_message("Bot nie posiada wystarczających uprawnień (Zarządzanie kanałami / Wyrzucanie członków), aby wykonać tę akcję.", ephemeral=True)
+        except Exception:
+            await interaction.response.send_message(
+                "❌ Wystąpił nieoczekiwany błąd.",
+                ephemeral=True
+            )
 
-        await interaction.response.send_message(
-            f"👢 {member.mention} został wyrzucony z kanału.",
-            ephemeral=True
-        )
-
-
-class KickView(discord.ui.View):
-    def __init__(self, voice_channel_id):
+class KickUserView(discord.ui.View):
+    def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
         super().__init__(timeout=60)
 
-        channel = None
-
-        self.select = KickSelect(voice_channel_id)
-
-        self.add_item(self.select)
+        self.add_item(
+            KickUserSelect(
+                voice_channel,
+                owner
+            )
+        )
