@@ -5,6 +5,7 @@ from .data import temp_channels
 from .views import TempVoicePanel
 
 CREATE_CHANNEL_ID = 1521930171353923787
+CATEGORY_ID = 1515585251475198025
 
 class TempVoice(commands.Cog):
     def __init__(self, bot):
@@ -15,7 +16,12 @@ class TempVoice(commands.Cog):
 
         # 1. Tworzenie kanału
         if after.channel and after.channel.id == CREATE_CHANNEL_ID:
-            category = after.channel.category
+            # Pobieramy wskazaną kategorię po ID
+            category = member.guild.get_channel(CATEGORY_ID)
+            
+            # Jeśli kategoria nie zostanie znaleziona, użyj kategorii kanału startowego
+            if not category:
+                category = after.channel.category
 
             # Kanał głosowy
             voice_channel = await category.create_voice_channel(
@@ -39,7 +45,7 @@ class TempVoice(commands.Cog):
                 )
             }
 
-            # Kanał tekstowy (Ustawiono stałą, estetyczną nazwę)
+            # Kanał tekstowy przypisany na stałe do wybranej kategorii
             text_channel = await category.create_text_channel(
                 name="panel_sterowania",
                 overwrites=overwrites
@@ -109,7 +115,7 @@ class TempVoice(commands.Cog):
                         read_message_history=True
                     )
         
-                    # Zmień nazwę wyłącznie kanału głosowego (tekstowy ma stałą nazwę)
+                    # Zmień nazwę wyłącznie kanału głosowego
                     try:
                         await before.channel.edit(
                             name=f"🎤 {new_owner.display_name}"
