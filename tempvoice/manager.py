@@ -52,6 +52,7 @@ class TempVoice(commands.Cog):
                 "owner": member.id,
                 "banned": set(),
                 "text_channel": text_channel.id
+                "created_at": datetime.now()
             }
 
             # Przeniesienie użytkownika
