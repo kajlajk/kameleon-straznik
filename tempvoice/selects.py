@@ -72,16 +72,12 @@ class KickUserSelect(discord.ui.Select):
         except discord.Forbidden:
             await interaction.response.send_message("Bot nie posiada wystarczających uprawnień (Zarządzanie kanałami / Wyrzucanie członków), aby wykonać tę akcję.", ephemeral=True)
         
-       except Exception as e:
-            import traceback
-        
-            traceback.print_exc()
-        
+        except Exception:
             await interaction.response.send_message(
-                f"❌ {e}",
+                "❌ Wystąpił nieoczekiwany błąd.",
                 ephemeral=True
             )
-
+        
 class UnbanUserSelect(discord.ui.Select):
     def __init__(self, voice_channel: discord.VoiceChannel):
         self.voice_channel = voice_channel
