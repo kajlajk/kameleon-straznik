@@ -19,7 +19,7 @@ class TempVoice(commands.Cog):
 
             # Kanał głosowy
             voice_channel = await category.create_voice_channel(
-                name=f"🎤 {member.display_name}"
+                name=f"🔊 {member.display_name}"
             )
 
             # Uprawnienia kanału tekstowego
@@ -39,9 +39,9 @@ class TempVoice(commands.Cog):
                 )
             }
 
-            # Kanał tekstowy
+            # Kanał tekstowy (Ustawiono stałą, estetyczną nazwę)
             text_channel = await category.create_text_channel(
-                name=f"🎛-{member.name.lower()}",
+                name="🛠-panel-sterowania",
                 overwrites=overwrites
             )
 
@@ -109,19 +109,15 @@ class TempVoice(commands.Cog):
                         read_message_history=True
                     )
         
-                    # Zmień nazwę kanałów (głosowy i tekstowy)
+                    # Zmień nazwę wyłącznie kanału głosowego (tekstowy ma stałą nazwę)
                     try:
                         await before.channel.edit(
                             name=f"🎤 {new_owner.display_name}"
                         )
-                    
-                        await text_channel.edit(
-                            name=f"🎛-{new_owner.name.lower()}"
-                        )
                     except discord.Forbidden:
                         pass
         
-                    # Zaktualizuj panel (PRAWIDŁOWY SPOSÓB)
+                    # Zaktualizuj panel
                     try:
                         panel_message = await text_channel.fetch_message(
                             channel_data["panel_message"]
@@ -140,7 +136,7 @@ class TempVoice(commands.Cog):
                             inline=False
                         )
             
-                        # Edytujemy wyłącznie treść Embedu. Oryginalny View zostaje nienaruszony.
+                        # Edytujemy wyłącznie treść Embedu
                         await panel_message.edit(embed=embed)
                     
                     except (discord.NotFound, discord.Forbidden):
