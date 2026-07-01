@@ -1,6 +1,6 @@
 import discord
 from .modals import RenameModal, LimitModal
-from .selects import KickUserSelect, UnbanUserSelect
+from .selects import KickUserSelect, UnbanUserSelect, TransferOwnerSelect
 
 class KickUserView(discord.ui.View):
     def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
@@ -20,6 +20,17 @@ class UnbanUserView(discord.ui.View):
         self.add_item(
             UnbanUserSelect(
                 voice_channel
+            )
+        )
+
+class TransferOwnerView(discord.ui.View):
+    def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
+        super().__init__(timeout=60)
+
+        self.add_item(
+            TransferOwnerSelect(
+                voice_channel,
+                owner
             )
         )
 
