@@ -192,3 +192,37 @@ class TransferOwnerSelect(discord.ui.Select):
                 min_values=1,
                 max_values=1
             )
+
+    async def callback(self, interaction: discord.Interaction):
+
+        if self.values[0] == "none":
+            await interaction.response.send_message(
+                "❌ Nie ma komu przekazać kanału.",
+                ephemeral=True
+            )
+            return
+
+        new_owner_id = int(self.values[0])
+
+        if self.voice_channel.id not in temp_channels:
+            await interaction.response.send_message(
+                "❌ Nie znaleziono danych kanału.",
+                ephemeral=True
+            )
+            return
+
+        temp_channels[self.voice_channel.id]["owner"] = new_owner_id
+
+        member = interaction.guild.get_member(new_owner_id)
+
+        if member is None:
+            await interaction.response.send_message(
+                "❌ Nie znaleziono użytkownika.",
+                ephemeral=True
+            )
+            return
+
+        await interaction.response.send_message(
+            f"👑 Właścicielem kanału został {member.mention}.",
+            ephemeral=True
+        )
