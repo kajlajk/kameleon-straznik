@@ -42,7 +42,7 @@ class TempVoicePanel(discord.ui.View):
         row=0
     )
     async def limit(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(
+        await interaction.response.send_modal(
             LimitModal(self.voice_channel_id)
         )
        
