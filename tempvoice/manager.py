@@ -117,7 +117,7 @@ class TempVoiceManager(commands.Cog):
     async def send_panel(...):
         ...
 
-    async def update_panel(...):   👈 TU WKLEJ
+    async def update_panel(...):
 
     @commands.Cog.listener()
     async def on_voice_state_update(...):
