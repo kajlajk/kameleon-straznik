@@ -140,7 +140,15 @@ class TempVoice(commands.Cog):
                             inline=False
                         )
             
-                        await panel_message.edit(embed=embed)
+                        await panel_message.edit(
+                            embed=embed,
+                            view=TempVoicePanel(
+                                before.channel.id,
+                                text_channel.id,
+                                new_owner.id
+                            )
+                        )
+                    
                     except (discord.NotFound, discord.Forbidden):
                         pass
         
