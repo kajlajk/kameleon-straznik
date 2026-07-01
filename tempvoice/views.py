@@ -80,8 +80,23 @@ class TempVoicePanel(discord.ui.View):
         row=1
     )
     async def unlock(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        channel = interaction.guild.get_channel(self.voice_channel_id)
+
+        if channel is None:
+            await interaction.response.send_message(
+                "❌ Nie znaleziono kanału.",
+                ephemeral=True
+            )
+            return
+
+        await channel.set_permissions(
+            interaction.guild.default_role,
+            connect=None
+        )
+
         await interaction.response.send_message(
-            "🔓 Kliknięto Odblokuj",
+            "🔓 Kanał został odblokowany.",
             ephemeral=True
         )
 
