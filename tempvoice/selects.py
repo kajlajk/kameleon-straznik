@@ -75,7 +75,3 @@ class KickUserSelect(discord.ui.Select):
                 "❌ Wystąpił nieoczekiwany błąd.",
                 ephemeral=True
             )
-
-                owner
-            )
-        )
