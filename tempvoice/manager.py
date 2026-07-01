@@ -3,19 +3,18 @@ from discord.ext import commands
 
 from .data import temp_channels
 
+CREATE_CHANNEL_ID = 0  # tutaj później wpiszemy ID kanału "➕ Utwórz pokój"
+
 
 class TempVoice(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-        # ZMIEŃ TO PÓŹNIE
-        self.create_channel_id = 0
-
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
 
         # Tworzenie kanału
-        if after.channel and after.channel.id == self.create_channel_id:
+        if after.channel and after.channel.id == CREATE_CHANNEL_ID:
 
             category = after.channel.category
 
@@ -31,15 +30,13 @@ class TempVoice(commands.Cog):
             await member.move_to(channel)
 
         # Usuwanie kanału
-        if before.channel:
+        if before.channel and before.channel.id in temp_channels:
 
-            if before.channel.id in temp_channels:
+            if len(before.channel.members) == 0:
 
-                if len(before.channel.members) == 0:
+                del temp_channels[before.channel.id]
 
-                    del temp_channels[before.channel.id]
-
-                    await before.channel.delete()
+                await before.channel.delete()
 
 
 async def setup(bot):
