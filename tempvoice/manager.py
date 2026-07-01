@@ -145,3 +145,6 @@ class TempVoiceManager(commands.Cog):
                     await self.delete_room(before.channel)
                 else:
                     await self.transfer_owner(before.channel)
+
+    async def setup(bot):
+        await bot.add_cog(TempVoiceManager(bot))
