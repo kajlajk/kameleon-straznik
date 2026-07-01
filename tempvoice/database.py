@@ -47,9 +47,10 @@ class RoomDatabase:
             "description": "",
 
             "banned": [],
-
-            "panel_message": None
+           
             "panel_channel": None,
+            "panel_message": None
+           
 
         }
 
