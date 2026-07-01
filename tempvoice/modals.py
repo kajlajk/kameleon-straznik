@@ -24,14 +24,14 @@ class RenameModal(discord.ui.Modal, title="Zmień nazwę kanału"):
             )
             return
 
-    try:
-        await channel.edit(name=self.new_name.value)
-    except Exception as e:
-        await interaction.response.send_message(
-            f"❌ {type(e).__name__}: {e}",
-            ephemeral=True
-        )
-        return
+        try:
+            await channel.edit(name=self.new_name.value)
+        except Exception as e:
+            await interaction.response.send_message(
+                f"❌ {type(e).__name__}: {e}",
+                ephemeral=True
+            )
+            return
         
         await interaction.response.send_message(
             f"✅ Zmieniono nazwę kanału na **{self.new_name.value}**.",
