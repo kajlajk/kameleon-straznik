@@ -1,4 +1,5 @@
 import discord
+from .modals import RenameModal
 
 
 class TempVoicePanel(discord.ui.View):
