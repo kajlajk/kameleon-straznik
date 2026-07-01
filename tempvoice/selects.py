@@ -1,235 +1,157 @@
 import discord
 
 
-# ==========================
+# ==================================================
 # KICK
-# ==========================
+# ==================================================
 
-class KickSelect(discord.ui.Select):
+class KickSelect(discord.ui.UserSelect):
 
-    def __init__(self, members):
-
-        options = []
-
-        for member in members:
-            options.append(
-                discord.SelectOption(
-                    label=member.display_name,
-                    value=str(member.id)
-                )
-            )
+    def __init__(self, manager, channel):
 
         super().__init__(
             placeholder="👢 Wybierz użytkownika...",
             min_values=1,
-            max_values=1,
-            options=options
+            max_values=1
         )
+
+        self.manager = manager
+        self.channel = channel
 
     async def callback(self, interaction: discord.Interaction):
 
-        await interaction.response.send_message(
-            "🚧 Kick będzie działał w następnym etapie.",
-            ephemeral=True
+        member = self.values[0]
+
+        await self.manager.kick_member(
+            interaction,
+            self.channel,
+            member
         )
 
 
 class KickView(discord.ui.View):
 
-    def __init__(self, members):
+    def __init__(self, manager, channel):
 
         super().__init__(timeout=60)
 
         self.add_item(
-            KickSelect(members)
+            KickSelect(manager, channel)
         )
 
 
-# ==========================
+# ==================================================
 # BAN
-# ==========================
+# ==================================================
 
-class BanSelect(discord.ui.Select):
+class BanSelect(discord.ui.UserSelect):
 
-    def __init__(self, members):
-
-        options = []
-
-        for member in members:
-            options.append(
-                discord.SelectOption(
-                    label=member.display_name,
-                    value=str(member.id)
-                )
-            )
+    def __init__(self, manager, channel):
 
         super().__init__(
             placeholder="🚫 Wybierz użytkownika...",
             min_values=1,
-            max_values=1,
-            options=options
+            max_values=1
         )
+
+        self.manager = manager
+        self.channel = channel
 
     async def callback(self, interaction):
 
-        await interaction.response.send_message(
-            "🚧 Ban będzie działał w następnym etapie.",
-            ephemeral=True
+        member = self.values[0]
+
+        await self.manager.ban_member(
+            interaction,
+            self.channel,
+            member
         )
 
 
 class BanView(discord.ui.View):
 
-    def __init__(self, members):
+    def __init__(self, manager, channel):
 
         super().__init__(timeout=60)
 
         self.add_item(
-            BanSelect(members)
+            BanSelect(manager, channel)
         )
 
 
-# ==========================
-# UNBAN
-# ==========================
-
-class UnbanSelect(discord.ui.Select):
-
-    def __init__(self, users):
-
-        options = []
-
-        if len(users) == 0:
-
-            options.append(
-                discord.SelectOption(
-                    label="Brak zbanowanych",
-                    value="0"
-                )
-            )
-
-        else:
-
-            for user in users:
-
-                options.append(
-                    discord.SelectOption(
-                        label=user.display_name,
-                        value=str(user.id)
-                    )
-                )
-
-        super().__init__(
-            placeholder="✅ Wybierz użytkownika...",
-            min_values=1,
-            max_values=1,
-            options=options
-        )
-
-    async def callback(self, interaction):
-
-        await interaction.response.send_message(
-            "🚧 Unban będzie działał w następnym etapie.",
-            ephemeral=True
-        )
-
-
-class UnbanView(discord.ui.View):
-
-    def __init__(self, users):
-
-        super().__init__(timeout=60)
-
-        self.add_item(
-            UnbanSelect(users)
-        )
-
-
-# ==========================
+# ==================================================
 # OWNER
-# ==========================
+# ==================================================
 
-class OwnerSelect(discord.ui.Select):
+class OwnerSelect(discord.ui.UserSelect):
 
-    def __init__(self, members):
-
-        options = []
-
-        for member in members:
-
-            options.append(
-                discord.SelectOption(
-                    label=member.display_name,
-                    value=str(member.id)
-                )
-            )
+    def __init__(self, manager, channel):
 
         super().__init__(
-            placeholder="👑 Nowy owner...",
+            placeholder="👑 Wybierz nowego ownera...",
             min_values=1,
-            max_values=1,
-            options=options
+            max_values=1
         )
+
+        self.manager = manager
+        self.channel = channel
 
     async def callback(self, interaction):
 
-        await interaction.response.send_message(
-            "🚧 Transfer ownera będzie działał w następnym etapie.",
-            ephemeral=True
+        member = self.values[0]
+
+        await self.manager.change_owner(
+            interaction,
+            self.channel,
+            member
         )
 
 
 class OwnerView(discord.ui.View):
 
-    def __init__(self, members):
+    def __init__(self, manager, channel):
 
         super().__init__(timeout=60)
 
         self.add_item(
-            OwnerSelect(members)
+            OwnerSelect(manager, channel)
         )
 
 
-# ==========================
+# ==================================================
 # CO OWNER
-# ==========================
+# ==================================================
 
-class CoOwnerSelect(discord.ui.Select):
+class CoOwnerSelect(discord.ui.UserSelect):
 
-    def __init__(self, members):
-
-        options = []
-
-        for member in members:
-
-            options.append(
-                discord.SelectOption(
-                    label=member.display_name,
-                    value=str(member.id)
-                )
-            )
+    def __init__(self, manager, channel):
 
         super().__init__(
             placeholder="⭐ Wybierz współwłaściciela...",
             min_values=1,
-            max_values=1,
-            options=options
+            max_values=1
         )
+
+        self.manager = manager
+        self.channel = channel
 
     async def callback(self, interaction):
 
-        await interaction.response.send_message(
-            "🚧 Współwłaściciel będzie działał w następnym etapie.",
-            ephemeral=True
+        member = self.values[0]
+
+        await self.manager.set_co_owner(
+            interaction,
+            self.channel,
+            member
         )
 
 
 class CoOwnerView(discord.ui.View):
 
-    def __init__(self, members):
+    def __init__(self, manager, channel):
 
         super().__init__(timeout=60)
 
         self.add_item(
-            CoOwnerSelect(members)
+            CoOwnerSelect(manager, channel)
         )
