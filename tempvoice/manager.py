@@ -137,7 +137,7 @@ async def on_voice_state_update(self, member, before, after):
     print("BEFORE:", before.channel)
     print("AFTER:", after.channel)
 
-    if after.channel and after.channel.id == CREATE_CHANNEL_ID:
+    if after.channel:
         await self.create_room(member)
 
     # ======================================
