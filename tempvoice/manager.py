@@ -103,6 +103,8 @@ class TempVoiceManager(commands.Cog):
 class TempVoiceManager(commands.Cog):
 
     def __init__(self, bot):
+        self.bot = bot
+        self.db = RoomDatabase()
         
 
     async def create_room(self, member):
