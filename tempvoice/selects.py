@@ -76,13 +76,6 @@ class KickUserSelect(discord.ui.Select):
                 ephemeral=True
             )
 
-class KickUserView(discord.ui.View):
-    def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
-        super().__init__(timeout=60)
-
-        self.add_item(
-            KickUserSelect(
-                voice_channel,
                 owner
             )
         )
