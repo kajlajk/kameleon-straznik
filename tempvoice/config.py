@@ -65,3 +65,6 @@ ROOM_RENAMED = "✏️ Nazwa pokoju została zmieniona."
 DESCRIPTION_CHANGED = "📝 Opis pokoju został zmieniony."
 
 LIMIT_CHANGED = "👥 Limit użytkowników został zmieniony."
+
+# Kanał z panelem TempVoice
+PANEL_CHANNEL_ID = 1521719076982886430
