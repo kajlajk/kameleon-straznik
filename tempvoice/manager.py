@@ -4,8 +4,7 @@ from discord.ext import commands
 from .data import temp_channels
 from .views import TempVoicePanel
 
-CREATE_CHANNEL_ID = 1521876957795455107
-
+CREATE_CHANNEL_ID = 1521930171353923787
 
 class TempVoice(commands.Cog):
     def __init__(self, bot):
