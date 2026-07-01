@@ -81,6 +81,20 @@ class TempVoice(commands.Cog):
         )
         temp_channels[voice_channel.id]["panel_message"] = panel_message.id
 
+
+        # Automatyczne przekazanie właściciela
+        if before.channel and before.channel.id in temp_channels:
+
+            channel_data = temp_channels[before.channel.id]
+
+            # Czy z kanału wyszedł właściciel?
+            if member.id == channel_data["owner"]:
+
+                # Czy ktoś jeszcze został na kanale?
+                if len(before.channel.members) > 0:
+
+                    new_owner = before.channel.members[0]
+         
         # Usuwanie kanału
         if before.channel and before.channel.id in temp_channels:
 
