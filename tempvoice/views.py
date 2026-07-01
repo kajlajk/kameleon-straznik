@@ -3,8 +3,25 @@ from .modals import RenameModal
 
 
 class TempVoicePanel(discord.ui.View):
-    def __init__(self):
+    def __init__(self, voice_channel_id, text_channel_id, owner_id):
         super().__init__(timeout=None)
+
+        self.voice_channel_id = voice_channel_id
+        self.text_channel_id = text_channel_id
+        self.owner_id = owner_id
+
+    async def interaction_check(self, interaction: discord.Interaction):
+
+        if interaction.user.id != self.owner_id:
+
+            await interaction.response.send_message(
+                "❌ Ten panel nie należy do Ciebie.",
+                ephemeral=True
+            )
+
+            return False
+
+        return True
 
     @discord.ui.button(
         label="Nazwa",
