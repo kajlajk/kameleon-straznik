@@ -1,5 +1,5 @@
 import discord
-from .modals import RenameModal
+from .modals import RenameModal, LimitModal
 
 
 class TempVoicePanel(discord.ui.View):
@@ -43,10 +43,9 @@ class TempVoicePanel(discord.ui.View):
     )
     async def limit(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_message(
-            "👥 Kliknięto Limit",
-            ephemeral=True
+            LimitModal(self.voice_channel_id)
         )
-
+       
     @discord.ui.button(
         label="Zablokuj",
         emoji="🔒",
