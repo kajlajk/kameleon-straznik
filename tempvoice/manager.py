@@ -140,7 +140,11 @@ class TempVoice(commands.Cog):
                             inline=False
                         )
             
-                        await panel_message.edit(
+                        # Usuń stary panel
+                        await panel_message.delete()
+                    
+                        # Wyślij nowy panel
+                        new_panel = await text_channel.send(
                             embed=embed,
                             view=TempVoicePanel(
                                 before.channel.id,
@@ -149,8 +153,11 @@ class TempVoice(commands.Cog):
                             )
                         )
                     
-                    except (discord.NotFound, discord.Forbidden):
-                        pass
+                        # Zapisz ID nowego panelu
+                        channel_data["panel_message"] = new_panel.id
+                    
+                        except (discord.NotFound, discord.Forbidden):
+                            pass
         
         # 3. Usuwanie kanału
         if before.channel and before.channel.id in temp_channels:
