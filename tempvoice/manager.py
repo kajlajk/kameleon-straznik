@@ -47,7 +47,7 @@ class TempVoice(commands.Cog):
 
             # Kanał tekstowy przypisany na stałe do wybranej kategorii
             text_channel = await category.create_text_channel(
-                name="panel_sterowania",
+                name="🔧・panel_sterowania",
                 overwrites=overwrites
             )
 
