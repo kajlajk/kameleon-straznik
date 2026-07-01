@@ -154,3 +154,41 @@ class UnbanUserSelect(discord.ui.Select):
             "✅ Użytkownik został odbanowany.",
             ephemeral=True
         )
+
+class TransferOwnerSelect(discord.ui.Select):
+    def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
+        self.voice_channel = voice_channel
+
+        options = []
+
+        for member in voice_channel.members:
+            if member.id != owner.id and not member.bot:
+                options.append(
+                    discord.SelectOption(
+                        label=member.display_name,
+                        value=str(member.id),
+                        description=f"@{member.name}"
+                    )
+                )
+
+        if not options:
+            options.append(
+                discord.SelectOption(
+                    label="Brak użytkowników",
+                    value="none"
+                )
+            )
+
+            super().__init__(
+                placeholder="Nie ma komu przekazać kanału",
+                options=options,
+                disabled=True
+            )
+
+        else:
+            super().__init__(
+                placeholder="Wybierz nowego właściciela...",
+                options=options,
+                min_values=1,
+                max_values=1
+            )
