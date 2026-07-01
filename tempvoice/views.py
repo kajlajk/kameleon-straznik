@@ -1,6 +1,17 @@
 import discord
 from .modals import RenameModal, LimitModal
-from .selects import KickUserView
+from .selects import KickUserSelect
+
+class KickUserView(discord.ui.View):
+    def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
+        super().__init__(timeout=60)
+
+        self.add_item(
+            KickUserSelect(
+                voice_channel,
+                owner
+            )
+        )
 
 class TempVoicePanel(discord.ui.View):
     def __init__(self, voice_channel_id, text_channel_id, owner_id):
@@ -32,7 +43,7 @@ class TempVoicePanel(discord.ui.View):
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(
             RenameModal(self.voice_channel_id)
-    )
+        )
 
 
     @discord.ui.button(
