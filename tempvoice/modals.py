@@ -2,6 +2,10 @@ import discord
 
 
 class RenameModal(discord.ui.Modal, title="Zmień nazwę kanału"):
+    def __init__(self, voice_channel_id):
+        super().__init__()
+
+        self.voice_channel_id = voice_channel_id
 
     new_name = discord.ui.TextInput(
         label="Nowa nazwa",
@@ -11,11 +15,20 @@ class RenameModal(discord.ui.Modal, title="Zmień nazwę kanału"):
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        await interaction.user.voice.channel.edit(
+        channel = interaction.guild.get_channel(self.voice_channel_id)
+
+        if channel is None:
+            await interaction.response.send_message(
+                "❌ Nie znaleziono kanału.",
+                ephemeral=True
+            )
+            return
+
+        await channel.edit(
             name=self.new_name.value
         )
 
         await interaction.response.send_message(
-            "✅ Nazwa kanału została zmieniona.",
+            f"✅ Zmieniono nazwę kanału na **{self.new_name.value}**.",
             ephemeral=True
         )
