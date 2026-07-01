@@ -120,6 +120,37 @@ class TempVoice(commands.Cog):
                 send_messages=True,
                 read_message_history=True
             )
+
+                    # Zmień nazwę kanału głosowego
+            await before.channel.edit(
+                name=f"🎤 {new_owner.display_name}"
+            )
+
+            # Zmień nazwę kanału tekstowego
+            await text_channel.edit(
+                name=f"🎛-{new_owner.name.lower()}"
+            )
+
+            # Zaktualizuj panel
+            panel_message = await text_channel.fetch_message(
+                channel_data["panel_message"]
+            )
+
+            embed = discord.Embed(
+                title="🎛 Zarządzanie kanałem",
+                description="Użyj przycisków poniżej, aby zarządzać swoim kanałem.",
+                color=discord.Color.green()
+            )
+
+            embed.add_field(
+                name="👑 Właściciel",
+                value=new_owner.mention,
+                inline=False
+            )
+
+            await panel_message.edit(
+                embed=embed
+            )
         
          
         # Usuwanie kanału
