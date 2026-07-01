@@ -18,13 +18,12 @@ class TempVoiceManager(commands.Cog):
         self.db = RoomDatabase()
 
     # ==========================================
-    # TWORZENIE POKOJU
+    # CREATE ROOM
     # ==========================================
 
     async def create_room(self, member: discord.Member):
 
         category = member.guild.get_channel(CATEGORY_ID)
-
         if category is None:
             return
 
@@ -43,7 +42,7 @@ class TempVoiceManager(commands.Cog):
         return channel
 
     # ==========================================
-    # USUWANIE
+    # DELETE ROOM
     # ==========================================
 
     async def delete_room(self, channel):
@@ -52,11 +51,10 @@ class TempVoiceManager(commands.Cog):
             return
 
         self.db.delete_room(channel.id)
-
         await channel.delete()
 
     # ==========================================
-    # ZMIANA OWNERA
+    # TRANSFER OWNER
     # ==========================================
 
     async def transfer_owner(self, channel):
@@ -78,92 +76,72 @@ class TempVoiceManager(commands.Cog):
             pass
 
     # ==========================================
-    # PANEL
+    # PANEL SYSTEM
     # ==========================================
-    
+
     async def send_panel(self, channel):
-    
+
         guild = channel.guild
-    
+
         panel_channel = await guild.create_text_channel(
             name=f"{VOICE_PANEL_PREFIX}{channel.id}",
             category=channel.category
         )
-    
+
         embed = create_panel_embed(self.db, channel)
-    
+
         message = await panel_channel.send(
             embed=embed,
             view=TempVoiceView(self, channel)
         )
-    
+
         self.db.set_panel_message(channel.id, message.id)
         self.db.set_panel_channel(channel.id, panel_channel.id)
 
-class TempVoiceManager(commands.Cog):
-
-    def __init__(self, bot):
-        self.bot = bot
-        self.db = RoomDatabase()
-        
-
-    async def create_room(self, member):
-        
-
-    async def delete_room(self, channel):
-        
-
-    async def transfer_owner(self, channel):
-        
-
-    async def send_panel(self, channel):
-        
-
     async def update_panel(self, channel):
 
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member, before, after):
-        
-    
+        panel_channel_id = self.db.get_panel_channel(channel.id)
+        if not panel_channel_id:
+            return
+
+        panel_channel = self.bot.get_channel(panel_channel_id)
+        if not panel_channel:
+            return
+
+        message_id = self.db.get_panel_message(channel.id)
+        if not message_id:
+            return
+
+        try:
+            message = await panel_channel.fetch_message(message_id)
+        except:
+            return
+
+        embed = create_panel_embed(self.db, channel)
+
+        await message.edit(
+            embed=embed,
+            view=TempVoiceView(self, channel)
+        )
+
     # ==========================================
-    # VOICE UPDATE
+    # VOICE EVENTS
     # ==========================================
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
 
-        # TWORZENIE POKOJU
+        # CREATE ROOM
         if after.channel and after.channel.id == CREATE_CHANNEL_ID:
             await self.create_room(member)
             return
 
-        # PUSTY KANAŁ
-        if before.channel:
+        # DELETE / OWNER CHECK
+        if before.channel and self.db.exists(before.channel.id):
 
-            if self.db.exists(before.channel.id):
+            if is_room_empty(before.channel):
 
-                if is_room_empty(before.channel):
-
-                    if DELETE_EMPTY_CHANNELS:
-                        await self.delete_room(before.channel)
-                        return
-
+                if DELETE_EMPTY_CHANNELS:
+                    await self.delete_room(before.channel)
+                else:
                     await self.transfer_owner(before.channel)
-
-        # BAN CHECK
-        if after.channel:
-
-            if self.db.exists(after.channel.id):
-
-                banned = self.db.get_banned(after.channel.id)
-
-                if member.id in banned:
-                    try:
-                        await member.move_to(None)
-                        await member.send(ROOM_BANNED)
-                    except:
-                        pass
-
-
-async def setup(bot):
-    await bot.add_cog(TempVoiceManager(bot))
