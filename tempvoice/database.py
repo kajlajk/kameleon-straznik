@@ -1,190 +1,372 @@
 import json
 import os
 
-FILE_NAME = "tempvoice_data.json"
+DATABASE_FILE = "tempvoice_data.json"
 
 
-def load_data():
-    if not os.path.exists(FILE_NAME):
-        return {}
+class RoomDatabase:
 
-    try:
-        with open(FILE_NAME, "r", encoding="utf-8") as f:
-            return json.load(f)
-    except:
-        return {}
+    def __init__(self):
+        self.data = self.load()
 
+    # ==================================================
+    # PLIK
+    # ==================================================
 
-def save_data(data):
-    with open(FILE_NAME, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4)
+    def load(self):
 
+        if not os.path.exists(DATABASE_FILE):
+            return {}
 
-def create_room(data, channel_id, owner_id):
-    data[str(channel_id)] = {
-        "owner": owner_id,
-        "co_owner": None,
-        "description": "",
-        "locked": False,
-        "private": False,
-        "banned": [],
-        "panel_message": None
-    }
+        try:
+            with open(DATABASE_FILE, "r", encoding="utf-8") as file:
+                return json.load(file)
 
-    save_data(data)
+        except Exception:
+            return {}
 
+    def save(self):
 
-def delete_room(data, channel_id):
-    data.pop(str(channel_id), None)
-    save_data(data)
+        with open(DATABASE_FILE, "w", encoding="utf-8") as file:
+            json.dump(
+                self.data,
+                file,
+                indent=4,
+                ensure_ascii=False
+            )
 
+    # ==================================================
+    # POKOJE
+    # ==================================================
 
-def room_exists(data, channel_id):
-    return str(channel_id) in data
+    def exists(self, channel_id: int):
 
+        return str(channel_id) in self.data
 
-def get_room(data, channel_id):
-    return data.get(str(channel_id))
+    def get_room(self, channel_id: int):
 
+        return self.data.get(str(channel_id))
 
-def get_owner(data, channel_id):
-    room = get_room(data, channel_id)
+    def create_room(
+        self,
+        channel_id: int,
+        owner_id: int
+    ):
 
-    if room is None:
-        return None
+        self.data[str(channel_id)] = {
 
-    return room["owner"]
+            "owner": owner_id,
 
+            "co_owner": None,
 
-def set_owner(data, channel_id, owner_id):
-    if not room_exists(data, channel_id):
-        return
+            "description": "",
 
-    data[str(channel_id)]["owner"] = owner_id
-    save_data(data)
+            "locked": False,
 
+            "private": False,
 
-def get_co_owner(data, channel_id):
-    room = get_room(data, channel_id)
+            "limit": 0,
 
-    if room is None:
-        return None
+            "banned": [],
 
-    return room["co_owner"]
+            "panel_channel": None,
 
+            "panel_message": None
 
-def set_co_owner(data, channel_id, user_id):
-    if not room_exists(data, channel_id):
-        return
+        }
 
-    data[str(channel_id)]["co_owner"] = user_id
-    save_data(data)
+        self.save()
 
+    def delete_room(
+        self,
+        channel_id: int
+    ):
 
-def remove_co_owner(data, channel_id):
-    if not room_exists(data, channel_id):
-        return
+        self.data.pop(
+            str(channel_id),
+            None
+        )
 
-    data[str(channel_id)]["co_owner"] = None
-    save_data(data)
+        self.save()
 
+    # ==================================================
+    # OWNER
+    # ==================================================
 
-def get_description(data, channel_id):
-    room = get_room(data, channel_id)
+    def get_owner(self, channel_id: int):
 
-    if room is None:
-        return ""
+        room = self.get_room(channel_id)
 
-    return room["description"]
+        if room is None:
+            return None
 
+        return room["owner"]
 
-def set_description(data, channel_id, description):
-    if not room_exists(data, channel_id):
-        return
+    def set_owner(
+        self,
+        channel_id: int,
+        owner_id: int
+    ):
 
-    data[str(channel_id)]["description"] = description
-    save_data(data)
+        if not self.exists(channel_id):
+            return
 
+        self.data[str(channel_id)]["owner"] = owner_id
 
-def is_locked(data, channel_id):
-    room = get_room(data, channel_id)
+        self.save()
 
-    if room is None:
-        return False
+    # ==================================================
+    # CO OWNER
+    # ==================================================
 
-    return room["locked"]
+    def get_co_owner(self, channel_id: int):
 
+        room = self.get_room(channel_id)
 
-def set_locked(data, channel_id, value):
-    if not room_exists(data, channel_id):
-        return
+        if room is None:
+            return None
 
-    data[str(channel_id)]["locked"] = value
-    save_data(data)
+        return room["co_owner"]
 
+    def set_co_owner(
+        self,
+        channel_id: int,
+        user_id: int
+    ):
 
-def is_private(data, channel_id):
-    room = get_room(data, channel_id)
+        if not self.exists(channel_id):
+            return
 
-    if room is None:
-        return False
+        self.data[str(channel_id)]["co_owner"] = user_id
 
-    return room["private"]
+        self.save()
 
+    def remove_co_owner(
+        self,
+        channel_id: int
+    ):
 
-def set_private(data, channel_id, value):
-    if not room_exists(data, channel_id):
-        return
+        if not self.exists(channel_id):
+            return
 
-    data[str(channel_id)]["private"] = value
-    save_data(data)
+        self.data[str(channel_id)]["co_owner"] = None
 
+        self.save()
 
-def get_banned(data, channel_id):
-    room = get_room(data, channel_id)
+    # ==================================================
+    # OPIS
+    # ==================================================
 
-    if room is None:
-        return []
+    def get_description(
+        self,
+        channel_id: int
+    ):
 
-    return room["banned"]
+        room = self.get_room(channel_id)
 
+        if room is None:
+            return ""
 
-def add_ban(data, channel_id, user_id):
-    if not room_exists(data, channel_id):
-        return
+        return room["description"]
 
-    banned = data[str(channel_id)]["banned"]
+    def set_description(
+        self,
+        channel_id: int,
+        description: str
+    ):
 
-    if user_id not in banned:
-        banned.append(user_id)
+        if not self.exists(channel_id):
+            return
 
-    save_data(data)
+        self.data[str(channel_id)]["description"] = description
 
+        self.save()
 
-def remove_ban(data, channel_id, user_id):
-    if not room_exists(data, channel_id):
-        return
+    # ==================================================
+    # LIMIT
+    # ==================================================
 
-    banned = data[str(channel_id)]["banned"]
+    def get_limit(
+        self,
+        channel_id: int
+    ):
 
-    if user_id in banned:
-        banned.remove(user_id)
+        room = self.get_room(channel_id)
 
-    save_data(data)
+        if room is None:
+            return 0
 
+        return room["limit"]
 
-def set_panel_message(data, channel_id, message_id):
-    if not room_exists(data, channel_id):
-        return
+    def set_limit(
+        self,
+        channel_id: int,
+        limit: int
+    ):
 
-    data[str(channel_id)]["panel_message"] = message_id
-    save_data(data)
+        if not self.exists(channel_id):
+            return
 
+        self.data[str(channel_id)]["limit"] = limit
 
-def get_panel_message(data, channel_id):
-    room = get_room(data, channel_id)
+        self.save()
 
-    if room is None:
-        return None
+    # ==================================================
+    # LOCK
+    # ==================================================
 
-    return room["panel_message"]
+    def is_locked(
+        self,
+        channel_id: int
+    ):
+
+        room = self.get_room(channel_id)
+
+        if room is None:
+            return False
+
+        return room["locked"]
+
+    def set_locked(
+        self,
+        channel_id: int,
+        value: bool
+    ):
+
+        if not self.exists(channel_id):
+            return
+
+        self.data[str(channel_id)]["locked"] = value
+
+        self.save()
+
+    # ==================================================
+    # PRIVATE
+    # ==================================================
+
+    def is_private(
+        self,
+        channel_id: int
+    ):
+
+        room = self.get_room(channel_id)
+
+        if room is None:
+            return False
+
+        return room["private"]
+
+    def set_private(
+        self,
+        channel_id: int,
+        value: bool
+    ):
+
+        if not self.exists(channel_id):
+            return
+
+        self.data[str(channel_id)]["private"] = value
+
+        self.save()
+
+    # ==================================================
+    # BANY
+    # ==================================================
+
+    def get_banned(
+        self,
+        channel_id: int
+    ):
+
+        room = self.get_room(channel_id)
+
+        if room is None:
+            return []
+
+        return room["banned"]
+
+    def add_ban(
+        self,
+        channel_id: int,
+        user_id: int
+    ):
+
+        if not self.exists(channel_id):
+            return
+
+        banned = self.data[str(channel_id)]["banned"]
+
+        if user_id not in banned:
+            banned.append(user_id)
+
+        self.save()
+
+    def remove_ban(
+        self,
+        channel_id: int,
+        user_id: int
+    ):
+
+        if not self.exists(channel_id):
+            return
+
+        banned = self.data[str(channel_id)]["banned"]
+
+        if user_id in banned:
+            banned.remove(user_id)
+
+        self.save()
+
+    # ==================================================
+    # PANEL
+    # ==================================================
+
+    def get_panel_channel(
+        self,
+        channel_id: int
+    ):
+
+        room = self.get_room(channel_id)
+
+        if room is None:
+            return None
+
+        return room["panel_channel"]
+
+    def set_panel_channel(
+        self,
+        channel_id: int,
+        value: int
+    ):
+
+        if not self.exists(channel_id):
+            return
+
+        self.data[str(channel_id)]["panel_channel"] = value
+
+        self.save()
+
+    def get_panel_message(
+        self,
+        channel_id: int
+    ):
+
+        room = self.get_room(channel_id)
+
+        if room is None:
+            return None
+
+        return room["panel_message"]
+
+    def set_panel_message(
+        self,
+        channel_id: int,
+        message_id: int
+    ):
+
+        if not self.exists(channel_id):
+            return
+
+        self.data[str(channel_id)]["panel_message"] = message_id
+
+        self.save()
