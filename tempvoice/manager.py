@@ -1,20 +1,118 @@
 import discord
+
 from discord.ext import commands
 
 from .config import *
-from .database import load_data, save_data
+
+from .database import RoomDatabase
+
+from .utils import (
+    is_room_empty,
+    first_member,
+)
 
 
 class TempVoiceManager(commands.Cog):
 
     def __init__(self, bot):
+
         self.bot = bot
-        self.data = load_data()
+
+        self.db = RoomDatabase()
+
+    # ==================================================
+    # TWORZENIE POKOJU
+    # ==================================================
+
+    async def create_room(
+        self,
+        member: discord.Member
+    ):
+
+        category = member.guild.get_channel(
+            CATEGORY_ID
+        )
+
+        channel = await member.guild.create_voice_channel(
+            name=f"{CHANNEL_PREFIX} {member.display_name}",
+            category=category,
+            user_limit=DEFAULT_USER_LIMIT
+        )
+
+        await member.move_to(channel)
+
+        self.db.create_room(
+            channel.id,
+            member.id
+        )
+
+        return channel
+
+    # ==================================================
+    # USUWANIE POKOJU
+    # ==================================================
+
+    async def delete_room(
+        self,
+        channel: discord.VoiceChannel
+    ):
+
+        if not self.db.exists(channel.id):
+            return
+
+        self.db.delete_room(channel.id)
+
+        await channel.delete()
+
+    # ==================================================
+    # ZMIANA OWNERA
+    # ==================================================
+
+    async def transfer_owner(
+        self,
+        channel: discord.VoiceChannel
+    ):
+
+        if not self.db.exists(channel.id):
+            return
+
+        if is_room_empty(channel):
+
+            await self.delete_room(channel)
+
+            return
+
+        new_owner = first_member(channel)
+
+        if new_owner is None:
+            return
+
+        self.db.set_owner(
+            channel.id,
+            new_owner.id
+        )
+
+        try:
+
+            await new_owner.send(
+                f"👑 Jesteś teraz właścicielem kanału **{channel.name}**."
+            )
+
+        except Exception:
+            pass
+
+    # ==================================================
+    # VOICE UPDATE
+    # ==================================================
 
     @commands.Cog.listener()
-    async def on_voice_state_update(self, member, before, after):
+    async def on_voice_state_update(
+        self,
+        member,
+        before,
+        after
+    ):
 
-        # Użytkownik nie zmienił kanału
         if before.channel == after.channel:
             return
 
@@ -22,56 +120,67 @@ class TempVoiceManager(commands.Cog):
         # Tworzenie kanału
         # ==========================
 
-        if after.channel and after.channel.id == CREATE_CHANNEL_ID:
+        if after.channel:
 
-            category = member.guild.get_channel(CATEGORY_ID)
+            if after.channel.id == CREATE_CHANNEL_ID:
 
-            channel = await member.guild.create_voice_channel(
-                name=f"{CHANNEL_PREFIX} {member.display_name}",
-                category=category,
-                user_limit=DEFAULT_USER_LIMIT
+                await self.create_room(
+                    member
+                )
+
+        # ==========================
+        # Opuszczenie kanału
+        # ==========================
+
+        if before.channel is None:
+            return
+
+        if not self.db.exists(before.channel.id):
+            return
+
+        # Kanał pusty -> usuń
+
+        if is_room_empty(before.channel):
+
+            await self.delete_room(
+                before.channel
             )
 
-            await member.move_to(channel)
+            return
 
-            self.data[str(channel.id)] = {
-                "owner": member.id
-            }
+        # Owner opuścił kanał
 
-            save_data(self.data)
+        owner = self.db.get_owner(
+            before.channel.id
+        )
+
+        if owner == member.id:
+
+            await self.transfer_owner(
+                before.channel
+            )
 
         # ==========================
-        # Zarządzanie istniejącym pokojem
+        # Sprawdzenie bana
         # ==========================
 
-        if before.channel and str(before.channel.id) in self.data:
+        if after.channel:
 
-            # Kanał pusty → usuń
-            if len(before.channel.members) == 0:
+            if self.db.exists(after.channel.id):
 
-                del self.data[str(before.channel.id)]
-                save_data(self.data)
+                banned = self.db.get_banned(
+                    after.channel.id
+                )
 
-                await before.channel.delete()
-                return
+                if member.id in banned:
 
-            # Owner wyszedł → przekaż własność
-            owner_id = self.data[str(before.channel.id)]["owner"]
+                    try:
 
-            if member.id == owner_id:
+                        await member.move_to(None)
 
-                new_owner = before.channel.members[0]
+                        await member.send(
+                            f"🚫 Jesteś zbanowany z pokoju **{after.channel.name}**."
+                        )
 
-                self.data[str(before.channel.id)]["owner"] = new_owner.id
-                save_data(self.data)
-
-                try:
-                    await new_owner.send(
-                        f"👑 Zostałeś nowym właścicielem kanału **{before.channel.name}**."
-                    )
-                except:
-                    pass
-
-
-async def setup(bot):
-    await bot.add_cog(TempVoiceManager(bot))
+                    except Exception:
+                        pass
