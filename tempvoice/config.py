@@ -22,7 +22,7 @@ DELETE_EMPTY_CHANNELS = True
 # ==========================================================
 
 # Tytuł embeda
-PANEL_TITLE = "🦎 TempVoice"
+PANEL_TITLE = "🦎 TempVoice by Meccha Chameleon Polska"
 
 # Opis embeda
 PANEL_DESCRIPTION = (
@@ -34,6 +34,9 @@ PANEL_COLOR = 0x57F287
 
 # Stopka embeda
 PANEL_FOOTER = "Meccha Chameleon Polska"
+
+# Prefix dla kanałów panelowych (VC system)
+VOICE_PANEL_PREFIX = "🎛️・panel-"
 
 # ==========================================================
 # MODALE
