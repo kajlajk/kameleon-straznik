@@ -1,3 +1,4 @@
+from .views import TempVoiceView
 import discord
 
 from discord.ext import commands
@@ -107,3 +108,74 @@ class TempVoiceManager(commands.Cog):
 
         except Exception:
             pass
+
+    # ==========================================
+    # PANEL
+    # ==========================================
+
+    async def send_panel(self, channel):
+
+        panel_channel = self.bot.get_channel(PANEL_CHANNEL_ID)
+
+        if panel_channel is None:
+            return
+
+        embed = create_panel_embed(
+            self.db,
+            channel
+        )
+
+    
+        message = await panel_channel.send(
+            embed=embed,
+            view=TempVoiceView(
+                self,
+                channel
+            )
+        )
+
+        self.db.set_panel_message(
+            channel.id,
+            message.id
+        )
+
+
+    async def update_panel(self, channel):
+
+        panel_channel = self.bot.get_channel(PANEL_CHANNEL_ID)
+
+        if panel_channel is None:
+            return
+
+        message_id = self.db.get_panel_message(
+            channel.id
+        )
+
+        if message_id is None:
+            return
+
+        try:
+
+            message = await panel_channel.fetch_message(
+                message_id
+            )
+
+        except discord.NotFound:
+            return
+
+        except discord.Forbidden:
+            return
+
+
+        embed = create_panel_embed(
+            self.db,
+            channel
+        )
+
+        await message.edit(
+            embed=embed,
+            view=TempVoiceView(
+                self,
+                channel
+            )
+        )
