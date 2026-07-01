@@ -124,27 +124,52 @@ class TempVoiceManager(commands.Cog):
             view=TempVoiceView(self, channel)
         )
 
-    # ==========================================
-    # VOICE EVENTS
-    # ==========================================
+# ==========================================
+# VOICE EVENTS
+# ==========================================
 
-    @commands.Cog.listener()
-    async def on_voice_state_update(self, member, before, after):
+@commands.Cog.listener()
+async def on_voice_state_update(self, member, before, after):
 
-        # CREATE ROOM
-        if after.channel and after.channel.id == CREATE_CHANNEL_ID:
-            await self.create_room(member)
-            return
+    # ======================================
+    # TWORZENIE POKOJU
+    # ======================================
 
-        # DELETE / OWNER CHECK
-        if before.channel and self.db.exists(before.channel.id):
+    if after.channel and after.channel.id == CREATE_CHANNEL_ID:
+        await self.create_room(member)
+        return
 
-            if is_room_empty(before.channel):
+    # ======================================
+    # USUWANIE / OWNER SYSTEM
+    # ======================================
 
-                if DELETE_EMPTY_CHANNELS:
-                    await self.delete_room(before.channel)
-                else:
-                    await self.transfer_owner(before.channel)
+    if before.channel and self.db.exists(before.channel.id):
 
-    async def setup(bot):
-        await bot.add_cog(TempVoiceManager(bot))
+        # jeśli kanał pusty
+        if is_room_empty(before.channel):
+
+            if DELETE_EMPTY_CHANNELS:
+                await self.delete_room(before.channel)
+            else:
+                await self.transfer_owner(before.channel)
+
+        return
+
+    # ======================================
+    # BAN CHECK
+    # ======================================
+
+    if after.channel and self.db.exists(after.channel.id):
+
+        banned = self.db.get_banned(after.channel.id)
+
+        if member.id in banned:
+
+            try:
+                await member.move_to(None)
+                await member.send(ROOM_BANNED)
+            except:
+                pass
+
+async def setup(bot):
+    await bot.add_cog(TempVoiceManager(bot))                
