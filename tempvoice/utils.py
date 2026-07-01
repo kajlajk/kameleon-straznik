@@ -1,16 +1,13 @@
 import discord
 
-from .database import RoomDatabase
 
-
-db = RoomDatabase()
 
 
 # ==================================================
 # UPRAWNIENIA
 # ==================================================
 
-def is_owner(channel_id: int, user_id: int) -> bool:
+def is_owner(db, channel_id: int, user_id: int) -> bool:
     owner = db.get_owner(channel_id)
 
     if owner is None:
@@ -19,7 +16,7 @@ def is_owner(channel_id: int, user_id: int) -> bool:
     return owner == user_id
 
 
-def is_co_owner(channel_id: int, user_id: int) -> bool:
+def is_co_owner(db, channel_id: int, user_id: int) -> bool:
     co_owner = db.get_co_owner(channel_id)
 
     if co_owner is None:
@@ -28,11 +25,11 @@ def is_co_owner(channel_id: int, user_id: int) -> bool:
     return co_owner == user_id
 
 
-def can_manage(channel_id: int, user_id: int) -> bool:
+def can_manage(db, channel_id: int, user_id: int) -> bool:
     return (
-        is_owner(channel_id, user_id)
+        is_owner(db, channel_id, user_id)
         or
-        is_co_owner(channel_id, user_id)
+        is_co_owner(db, channel_id, user_id)
     )
 
 
@@ -53,8 +50,9 @@ def first_member(channel: discord.VoiceChannel):
 
 
 def get_owner_member(
-    guild: discord.Guild,
-    channel_id: int
+    db,
+    guild,
+    channel_id
 ):
 
     owner = db.get_owner(channel_id)
@@ -70,12 +68,21 @@ def get_owner_member(
 # ==================================================
 
 def create_panel_embed(
-    channel: discord.VoiceChannel
+    db,
+    channel
 ):
 
     room = db.get_room(channel.id)
 
+    if room is None:
+        return discord.Embed(
+            title="❌ Błąd",
+            description="Nie znaleziono danych pokoju.",
+            color=discord.Color.red()
+        )
+
     owner = get_owner_member(
+        db,
         channel.guild,
         channel.id
     )
@@ -149,12 +156,16 @@ def create_panel_embed(
 # ==================================================
 
 async def refresh_panel(
-    message: discord.Message,
-    channel: discord.VoiceChannel,
+    db,
+    message,
+    channel,
     view
 ):
 
-    embed = create_panel_embed(channel)
+    embed = create_panel_embed(
+        db,
+        channel
+    )
 
     await message.edit(
         embed=embed,
