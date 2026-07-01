@@ -30,7 +30,9 @@ class TempVoicePanel(discord.ui.View):
         row=0
     )
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(RenameModal())
+        await interaction.response.send_modal(
+            RenameModal(self.voice_channel_id)
+    )
 
 
     @discord.ui.button(
