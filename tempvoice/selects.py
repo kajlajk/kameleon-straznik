@@ -140,6 +140,7 @@ class UnbanUserSelect(discord.ui.Select):
         except Exception:
             await interaction.followup.send("❌ Wystąpił błąd podczas odbanowywania.", ephemeral=True)
 
+import discord
 
 class TransferOwnerSelect(discord.ui.Select):
     def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
