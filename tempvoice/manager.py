@@ -105,22 +105,22 @@ class TempVoiceManager(commands.Cog):
     def __init__(self, bot):
         
 
-    async def create_room():
+    async def create_room(self, member):
         
 
-    async def delete_room():
+    async def delete_room(self, channel):
         
 
-    async def transfer_owner():
+    async def transfer_owner(self, channel):
         
 
-    async def send_panel():
+    async def send_panel(self, channel):
         
 
-    async def update_panel():
+    async def update_panel(self, channel):
 
     @commands.Cog.listener()
-    async def on_voice_state_update():
+    async def on_voice_state_update(self, member, before, after):
         
     
     # ==========================================
