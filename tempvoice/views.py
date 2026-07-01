@@ -156,8 +156,21 @@ class TempVoicePanel(discord.ui.View):
         row=1
     )
     async def unban(self, interaction: discord.Interaction, button: discord.ui.Button):
+
+        voice_channel = interaction.guild.get_channel(self.voice_channel_id)
+    
+        if voice_channel is None:
+            await interaction.response.send_message(
+                "❌ Nie znaleziono kanału.",
+                ephemeral=True
+            )
+            return
+    
+        view = UnbanUserView(voice_channel)
+    
         await interaction.response.send_message(
-            "🚪 Kliknięto Odbanuj",
+            "🚪 Wybierz użytkownika do odbanowania.",
+            view=view,
             ephemeral=True
         )
 
