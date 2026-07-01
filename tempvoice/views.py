@@ -83,11 +83,13 @@ class TempVoiceSelect(discord.ui.Select):
             return
 
         if value == "ban":
-
-            await self.manager.open_ban_menu(
-                interaction,
-                self.channel
+        
+            await interaction.response.send_message(
+                "🚫 Funkcja bana będzie dodana za chwilę.",
+                ephemeral=True
             )
+        
+            return
 
 
 class TempVoiceView(discord.ui.View):
