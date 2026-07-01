@@ -1,3 +1,5 @@
+print("TEMPVOICE MANAGER ZAŁADOWANY")
+
 import discord
 from discord.ext import commands
 
@@ -12,10 +14,10 @@ from .views import TempVoiceView
 
 
 class TempVoiceManager(commands.Cog):
-
     def __init__(self, bot):
         self.bot = bot
         self.db = RoomDatabase()
+        print("COG START")
 
     # ==========================================
     # CREATE ROOM
