@@ -1,5 +1,3 @@
-from .views import TempVoiceView
-
 import discord
 from discord.ext import commands
 
@@ -10,48 +8,35 @@ from .utils import (
     get_next_owner,
     create_panel_embed,
 )
+from .views import TempVoiceView
 
 
 class TempVoiceManager(commands.Cog):
 
     def __init__(self, bot):
-
         self.bot = bot
-
         self.db = RoomDatabase()
 
     # ==========================================
     # TWORZENIE POKOJU
     # ==========================================
 
-    async def create_room(
-        self,
-        member: discord.Member
-    ):
+    async def create_room(self, member: discord.Member):
 
-        category = member.guild.get_channel(
-            CATEGORY_ID
-        )
+        category = member.guild.get_channel(CATEGORY_ID)
 
         if category is None:
             return
 
         channel = await member.guild.create_voice_channel(
-
             name=f"{CHANNEL_PREFIX} {member.display_name}",
-
             category=category,
-
             user_limit=DEFAULT_USER_LIMIT
-
         )
 
         await member.move_to(channel)
 
-        self.db.create_room(
-            channel.id,
-            member.id
-        )
+        self.db.create_room(channel.id, member.id)
 
         await self.send_panel(channel)
 
@@ -61,17 +46,12 @@ class TempVoiceManager(commands.Cog):
     # USUWANIE
     # ==========================================
 
-    async def delete_room(
-        self,
-        channel
-    ):
+    async def delete_room(self, channel):
 
         if not self.db.exists(channel.id):
             return
 
-        self.db.delete_room(
-            channel.id
-        )
+        self.db.delete_room(channel.id)
 
         await channel.delete()
 
@@ -79,10 +59,7 @@ class TempVoiceManager(commands.Cog):
     # ZMIANA OWNERA
     # ==========================================
 
-    async def transfer_owner(
-        self,
-        channel
-    ):
+    async def transfer_owner(self, channel):
 
         if not self.db.exists(channel.id):
             return
@@ -90,23 +67,14 @@ class TempVoiceManager(commands.Cog):
         owner = get_next_owner(channel)
 
         if owner is None:
-
             await self.delete_room(channel)
-
             return
 
-        self.db.set_owner(
-            channel.id,
-            owner.id
-        )
+        self.db.set_owner(channel.id, owner.id)
 
         try:
-
-            await owner.send(
-                OWNER_CHANGED
-            )
-
-        except Exception:
+            await owner.send(OWNER_CHANGED)
+        except:
             pass
 
     # ==========================================
@@ -120,25 +88,14 @@ class TempVoiceManager(commands.Cog):
         if panel_channel is None:
             return
 
-        embed = create_panel_embed(
-            self.db,
-            channel
-        )
+        embed = create_panel_embed(self.db, channel)
 
-    
         message = await panel_channel.send(
             embed=embed,
-            view=TempVoiceView(
-                self,
-                channel
-            )
+            view=TempVoiceView(self, channel)
         )
 
-        self.db.set_panel_message(
-            channel.id,
-            message.id
-        )
-
+        self.db.set_panel_message(channel.id, message.id)
 
     async def update_panel(self, channel):
 
@@ -147,35 +104,62 @@ class TempVoiceManager(commands.Cog):
         if panel_channel is None:
             return
 
-        message_id = self.db.get_panel_message(
-            channel.id
-        )
+        message_id = self.db.get_panel_message(channel.id)
 
         if message_id is None:
             return
 
         try:
-
-            message = await panel_channel.fetch_message(
-                message_id
-            )
-
-        except discord.NotFound:
+            message = await panel_channel.fetch_message(message_id)
+        except:
             return
 
-        except discord.Forbidden:
-            return
-
-
-        embed = create_panel_embed(
-            self.db,
-            channel
-        )
+        embed = create_panel_embed(self.db, channel)
 
         await message.edit(
             embed=embed,
-            view=TempVoiceView(
-                self,
-                channel
-            )
+            view=TempVoiceView(self, channel)
         )
+
+    # ==========================================
+    # VOICE UPDATE
+    # ==========================================
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+
+        # TWORZENIE POKOJU
+        if after.channel and after.channel.id == CREATE_CHANNEL_ID:
+            await self.create_room(member)
+            return
+
+        # PUSTY KANAŁ
+        if before.channel:
+
+            if self.db.exists(before.channel.id):
+
+                if is_room_empty(before.channel):
+
+                    if DELETE_EMPTY_CHANNELS:
+                        await self.delete_room(before.channel)
+                        return
+
+                    await self.transfer_owner(before.channel)
+
+        # BAN CHECK
+        if after.channel:
+
+            if self.db.exists(after.channel.id):
+
+                banned = self.db.get_banned(after.channel.id)
+
+                if member.id in banned:
+                    try:
+                        await member.move_to(None)
+                        await member.send(ROOM_BANNED)
+                    except:
+                        pass
+
+
+async def setup(bot):
+    await bot.add_cog(TempVoiceManager(bot))
