@@ -251,6 +251,38 @@ class TransferOwnerSelect(discord.ui.Select):
             read_message_history=True
         )
 
+        # Zmień nazwę kanału głosowego
+        await self.voice_channel.edit(
+            name=f"🎤 {new_owner.display_name}"
+        )
+
+        # Zmień nazwę kanału tekstowego
+        await text_channel.edit(
+            name=f"🎛-{new_owner.name.lower()}"
+        )
+
+        # Pobierz wiadomość z panelem
+        panel_message_id = temp_channels[self.voice_channel.id]["panel_message"]
+
+        panel_message = await text_channel.fetch_message(panel_message_id)
+
+        # Nowy embed
+        embed = discord.Embed(
+            title="🎛 Zarządzanie kanałem",
+            description="Użyj przycisków poniżej, aby zarządzać swoim kanałem.",
+            color=discord.Color.green()
+        )
+
+        embed.add_field(
+            name="👑 Właściciel",
+            value=new_owner.mention,
+            inline=False
+        )
+
+        await panel_message.edit(
+            embed=embed
+        )
+        
         await interaction.response.send_message(
             f"👑 Właścicielem kanału został {new_owner.mention}.",
             ephemeral=True
