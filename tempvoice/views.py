@@ -1,4 +1,5 @@
 import discord
+from .data import temp_channels
 from .modals import RenameModal, LimitModal
 from .selects import KickUserSelect, UnbanUserSelect, TransferOwnerSelect
 
@@ -44,17 +45,24 @@ class TempVoicePanel(discord.ui.View):
 
     async def interaction_check(self, interaction: discord.Interaction):
 
-        if interaction.user.id != self.owner_id:
-
+        if self.voice_channel_id not in temp_channels:
+            await interaction.response.send_message(
+                "❌ Nie znaleziono danych kanału.",
+                ephemeral=True
+            )
+            return False
+    
+        current_owner = temp_channels[self.voice_channel_id]["owner"]
+    
+        if interaction.user.id != current_owner:
             await interaction.response.send_message(
                 "❌ Ten panel nie należy do Ciebie.",
                 ephemeral=True
             )
-
             return False
-
+    
         return True
-
+    
     @discord.ui.button(
         label="Nazwa",
         emoji="📝",
