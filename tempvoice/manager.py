@@ -72,7 +72,11 @@ class TempVoice(commands.Cog):
 
             await text_channel.send(
                 embed=embed,
-                view=TempVoicePanel()
+                view=TempVoicePanel(
+                    voice_channel.id,
+                    text_channel.id,
+                    member.id
+                )
             )
 
         # Usuwanie kanału
