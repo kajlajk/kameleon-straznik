@@ -71,14 +71,15 @@ class TempVoice(commands.Cog):
                 inline=False
             )
 
-            await text_channel.send(
-                embed=embed,
-                view=TempVoicePanel(
-                    voice_channel.id,
-                    text_channel.id,
-                    member.id
-                )
+        panel_message = await text_channel.send(
+            embed=embed,
+            view=TempVoicePanel(
+                voice_channel.id,
+                text_channel.id,
+                member.id
             )
+        )
+        temp_channels[voice_channel.id]["panel_message"] = panel_message.id
 
         # Usuwanie kanału
         if before.channel and before.channel.id in temp_channels:
