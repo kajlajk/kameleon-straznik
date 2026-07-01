@@ -202,8 +202,6 @@ class TransferOwnerSelect(discord.ui.Select):
             )
             return
 
-        new_owner_id = int(self.values[0])
-
         if self.voice_channel.id not in temp_channels:
             await interaction.response.send_message(
                 "❌ Nie znaleziono danych kanału.",
@@ -211,18 +209,49 @@ class TransferOwnerSelect(discord.ui.Select):
             )
             return
 
-        temp_channels[self.voice_channel.id]["owner"] = new_owner_id
+        new_owner_id = int(self.values[0])
 
-        member = interaction.guild.get_member(new_owner_id)
+        old_owner_id = temp_channels[self.voice_channel.id]["owner"]
 
-        if member is None:
+        new_owner = interaction.guild.get_member(new_owner_id)
+        old_owner = interaction.guild.get_member(old_owner_id)
+
+        if new_owner is None:
             await interaction.response.send_message(
-                "❌ Nie znaleziono użytkownika.",
+                "❌ Nie znaleziono nowego właściciela.",
                 ephemeral=True
             )
             return
 
+        text_channel_id = temp_channels[self.voice_channel.id]["text_channel"]
+        text_channel = interaction.guild.get_channel(text_channel_id)
+
+        if text_channel is None:
+            await interaction.response.send_message(
+                "❌ Nie znaleziono kanału tekstowego.",
+                ephemeral=True
+            )
+            return
+
+        # zapis nowego właściciela
+        temp_channels[self.voice_channel.id]["owner"] = new_owner.id
+
+        # zabierz dostęp staremu właścicielowi
+        if old_owner:
+            await text_channel.set_permissions(
+                old_owner,
+                overwrite=None
+            )
+
+        # daj dostęp nowemu właścicielowi
+        await text_channel.set_permissions(
+            new_owner,
+            view_channel=True,
+            send_messages=True,
+            read_message_history=True
+        )
+
         await interaction.response.send_message(
-            f"👑 Właścicielem kanału został {member.mention}.",
+            f"👑 Właścicielem kanału został {new_owner.mention}.",
             ephemeral=True
         )
