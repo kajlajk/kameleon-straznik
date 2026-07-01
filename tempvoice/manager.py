@@ -94,6 +94,33 @@ class TempVoice(commands.Cog):
                 if len(before.channel.members) > 0:
 
                     new_owner = before.channel.members[0]
+
+
+        # Zmień właściciela w pamięci
+        old_owner_id = channel_data["owner"]
+        channel_data["owner"] = new_owner.id
+
+        text_channel = member.guild.get_channel(
+            channel_data["text_channel"]
+        )
+
+        if text_channel:
+
+            old_owner = member.guild.get_member(old_owner_id)
+
+            if old_owner:
+                await text_channel.set_permissions(
+                    old_owner,
+                    overwrite=None
+                )
+
+            await text_channel.set_permissions(
+                new_owner,
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True
+            )
+        
          
         # Usuwanie kanału
         if before.channel and before.channel.id in temp_channels:
