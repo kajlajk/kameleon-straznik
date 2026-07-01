@@ -5,6 +5,7 @@ class KickUserSelect(discord.ui.Select):
     def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
         options = []
         
+        
         # Filtrowanie użytkowników: tylko osoby na tym kanale, bez właściciela i bez botów
         for member in voice_channel.members:
             if member.id != owner.id and not member.bot:
@@ -75,3 +76,80 @@ class KickUserSelect(discord.ui.Select):
                 "❌ Wystąpił nieoczekiwany błąd.",
                 ephemeral=True
             )
+
+class UnbanUserSelect(discord.ui.Select):
+    def __init__(self, voice_channel: discord.VoiceChannel):
+        self.voice_channel = voice_channel
+
+        options = []
+
+        data = temp_channels.get(voice_channel.id)
+
+        if data:
+            for user_id in data["banned"]:
+
+                member = voice_channel.guild.get_member(user_id)
+
+                if member:
+                    label = member.display_name
+                    description = f"@{member.name}"
+                else:
+                    label = "Nieznany użytkownik"
+                    description = str(user_id)
+
+                options.append(
+                    discord.SelectOption(
+                        label=label,
+                        value=str(user_id),
+                        description=description
+                    )
+                )
+
+        if not options:
+            options.append(
+                discord.SelectOption(
+                    label="Brak zbanowanych użytkowników",
+                    value="none"
+                )
+            )
+
+            super().__init__(
+                placeholder="Brak osób do odbanowania",
+                options=options,
+                disabled=True
+            )
+
+        else:
+            super().__init__(
+                placeholder="Wybierz użytkownika...",
+                options=options,
+                min_values=1,
+                max_values=1
+            )
+            
+    async def callback(self, interaction: discord.Interaction):
+
+        if self.values[0] == "none":
+            await interaction.response.send_message(
+                "❌ Nie ma nikogo do odbanowania.",
+                ephemeral=True
+            )
+            return
+
+        user_id = int(self.values[0])
+
+        member = interaction.guild.get_member(user_id)
+
+        if member:
+            await self.voice_channel.set_permissions(
+                member,
+                overwrite=None
+            )
+
+        if self.voice_channel.id in temp_channels:
+            temp_channels[self.voice_channel.id]["banned"].discard(user_id)
+
+        await interaction.response.send_message(
+            "✅ Użytkownik został odbanowany.",
+            ephemeral=True
+        )
