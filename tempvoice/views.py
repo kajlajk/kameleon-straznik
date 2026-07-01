@@ -13,7 +13,7 @@ class TempVoicePanel(discord.ui.View):
         row=0
     )
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_message(
+        await interaction.response.send_modal(RenameModal())
             "📝 Kliknięto Nazwa",
             ephemeral=True
         )
