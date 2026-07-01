@@ -133,7 +133,7 @@ class TempVoiceManager(commands.Cog):
 @commands.Cog.listener()
 async def on_voice_state_update(self, member, before, after):
 
-    print("VOICE EVENT DZIAŁA:", member.name, before.channel, "->", after.channel)
+    print("VOICE:", after.channel.id if after.channel else None)
 
     if after.channel and after.channel.id == CREATE_CHANNEL_ID:
         await self.create_room(member)
