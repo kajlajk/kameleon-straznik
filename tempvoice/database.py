@@ -15,3 +15,20 @@ def load_data():
 def save_data(data):
     with open(FILE_NAME, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=4)
+
+
+def get_owner(data, channel_id):
+    channel = data.get(str(channel_id))
+
+    if channel is None:
+        return None
+
+    return channel.get("owner")
+
+
+def set_owner(data, channel_id, owner_id):
+    if str(channel_id) not in data:
+        return
+
+    data[str(channel_id)]["owner"] = owner_id
+    save_data(data)
