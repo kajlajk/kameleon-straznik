@@ -3,7 +3,7 @@ from discord.ext import commands
 
 from .data import temp_channels
 
-CREATE_CHANNEL_ID = 0  # tutaj później wpiszemy ID kanału "➕ Utwórz pokój"
+CREATE_CHANNEL_ID = 1521876957795455107
 
 
 class TempVoice(commands.Cog):
