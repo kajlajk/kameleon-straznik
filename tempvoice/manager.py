@@ -41,19 +41,36 @@ class TempVoiceManager(commands.Cog):
             save_data(self.data)
 
         # ==========================
-        # Usuwanie pustych kanałów
+        # Zarządzanie istniejącym pokojem
         # ==========================
 
-        if before.channel:
+        if before.channel and str(before.channel.id) in self.data:
 
-            if str(before.channel.id) in self.data:
+            # Kanał pusty → usuń
+            if len(before.channel.members) == 0:
 
-                if len(before.channel.members) == 0:
+                del self.data[str(before.channel.id)]
+                save_data(self.data)
 
-                    del self.data[str(before.channel.id)]
-                    save_data(self.data)
+                await before.channel.delete()
+                return
 
-                    await before.channel.delete()
+            # Owner wyszedł → przekaż własność
+            owner_id = self.data[str(before.channel.id)]["owner"]
+
+            if member.id == owner_id:
+
+                new_owner = before.channel.members[0]
+
+                self.data[str(before.channel.id)]["owner"] = new_owner.id
+                save_data(self.data)
+
+                try:
+                    await new_owner.send(
+                        f"👑 Zostałeś nowym właścicielem kanału **{before.channel.name}**."
+                    )
+                except:
+                    pass
 
 
 async def setup(bot):
