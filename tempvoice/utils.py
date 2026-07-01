@@ -1,13 +1,17 @@
 import discord
 
-from .database import get_owner
+from .database import RoomDatabase
 
 
-def is_owner(data: dict, channel_id: int, user_id: int) -> bool:
-    """
-    Sprawdza czy użytkownik jest właścicielem pokoju.
-    """
-    owner = get_owner(data, channel_id)
+db = RoomDatabase()
+
+
+# ==================================================
+# UPRAWNIENIA
+# ==================================================
+
+def is_owner(channel_id: int, user_id: int) -> bool:
+    owner = db.get_owner(channel_id)
 
     if owner is None:
         return False
@@ -15,25 +19,45 @@ def is_owner(data: dict, channel_id: int, user_id: int) -> bool:
     return owner == user_id
 
 
-def get_room(data: dict, channel_id: int):
-    """
-    Zwraca dane pokoju lub None.
-    """
-    return data.get(str(channel_id))
+def is_co_owner(channel_id: int, user_id: int) -> bool:
+    co_owner = db.get_co_owner(channel_id)
+
+    if co_owner is None:
+        return False
+
+    return co_owner == user_id
 
 
-def room_exists(data: dict, channel_id: int) -> bool:
-    """
-    Sprawdza czy kanał jest pokojem TempVoice.
-    """
-    return str(channel_id) in data
+def can_manage(channel_id: int, user_id: int) -> bool:
+    return (
+        is_owner(channel_id, user_id)
+        or
+        is_co_owner(channel_id, user_id)
+    )
 
 
-def get_owner_member(guild: discord.Guild, data: dict, channel_id: int):
-    """
-    Zwraca obiekt Member właściciela.
-    """
-    owner = get_owner(data, channel_id)
+# ==================================================
+# KANAŁ
+# ==================================================
+
+def is_room_empty(channel: discord.VoiceChannel) -> bool:
+    return len(channel.members) == 0
+
+
+def first_member(channel: discord.VoiceChannel):
+
+    if len(channel.members) == 0:
+        return None
+
+    return channel.members[0]
+
+
+def get_owner_member(
+    guild: discord.Guild,
+    channel_id: int
+):
+
+    owner = db.get_owner(channel_id)
 
     if owner is None:
         return None
@@ -41,53 +65,20 @@ def get_owner_member(guild: discord.Guild, data: dict, channel_id: int):
     return guild.get_member(owner)
 
 
-def is_room_empty(channel: discord.VoiceChannel) -> bool:
-    """
-    Czy kanał jest pusty.
-    """
-    return len(channel.members) == 0
+# ==================================================
+# EMBED
+# ==================================================
 
-
-def first_member(channel: discord.VoiceChannel):
-    """
-    Zwraca pierwszego użytkownika na kanale.
-    """
-    if len(channel.members) == 0:
-        return None
-
-    return channel.members[0]
-
-
-def can_manage_room(data: dict, channel_id: int, user_id: int) -> bool:
-    """
-    Sprawdza czy użytkownik może zarządzać pokojem.
-    Owner lub współwłaściciel.
-    """
-
-    room = get_room(data, channel_id)
-
-    if room is None:
-        return False
-
-    if room["owner"] == user_id:
-        return True
-
-    co_owner = room.get("co_owner")
-
-    if co_owner == user_id:
-        return True
-
-    return False
-
-
-def create_embed(
-    owner: discord.Member,
-    channel: discord.VoiceChannel,
-    room_data: dict
+def create_panel_embed(
+    channel: discord.VoiceChannel
 ):
-    """
-    Tworzy główny panel TempVoice.
-    """
+
+    room = db.get_room(channel.id)
+
+    owner = get_owner_member(
+        channel.guild,
+        channel.id
+    )
 
     embed = discord.Embed(
         title="🦎 TempVoice",
@@ -95,11 +86,13 @@ def create_embed(
         color=discord.Color.green()
     )
 
-    embed.add_field(
-        name="👑 Owner",
-        value=owner.mention,
-        inline=False
-    )
+    if owner:
+
+        embed.add_field(
+            name="👑 Właściciel",
+            value=owner.mention,
+            inline=False
+        )
 
     embed.add_field(
         name="🔊 Kanał",
@@ -107,7 +100,10 @@ def create_embed(
         inline=False
     )
 
-    limit = "∞" if channel.user_limit == 0 else channel.user_limit
+    limit = channel.user_limit
+
+    if limit == 0:
+        limit = "∞"
 
     embed.add_field(
         name="👥 Osoby",
@@ -117,12 +113,12 @@ def create_embed(
 
     status = []
 
-    if room_data.get("private"):
+    if room["private"]:
         status.append("🔐 Prywatny")
     else:
         status.append("🌐 Publiczny")
 
-    if room_data.get("locked"):
+    if room["locked"]:
         status.append("🔒 Zablokowany")
     else:
         status.append("🔓 Otwarty")
@@ -133,12 +129,11 @@ def create_embed(
         inline=False
     )
 
-    description = room_data.get("description")
+    if room["description"]:
 
-    if description:
         embed.add_field(
             name="📝 Opis",
-            value=description,
+            value=room["description"],
             inline=False
         )
 
@@ -147,3 +142,21 @@ def create_embed(
     )
 
     return embed
+
+
+# ==================================================
+# ODŚWIEŻANIE PANELU
+# ==================================================
+
+async def refresh_panel(
+    message: discord.Message,
+    channel: discord.VoiceChannel,
+    view
+):
+
+    embed = create_panel_embed(channel)
+
+    await message.edit(
+        embed=embed,
+        view=view
+    )
