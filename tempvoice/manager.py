@@ -109,7 +109,7 @@ class TempVoice(commands.Cog):
                         read_message_history=True
                     )
         
-                    # Zmień nazwę kanału głosowego
+                    # Zmień nazwę kanałów (głosowy i tekstowy)
                     try:
                         await before.channel.edit(
                             name=f"🎤 {new_owner.display_name}"
@@ -118,7 +118,6 @@ class TempVoice(commands.Cog):
                         await text_channel.edit(
                             name=f"🎛-{new_owner.name.lower()}"
                         )
-                    
                     except discord.Forbidden:
                         pass
         
@@ -156,8 +155,8 @@ class TempVoice(commands.Cog):
                         # Zapisz ID nowego panelu
                         channel_data["panel_message"] = new_panel.id
                     
-                        except (discord.NotFound, discord.Forbidden):
-                            pass
+                    except (discord.NotFound, discord.Forbidden):
+                        pass
         
         # 3. Usuwanie kanału
         if before.channel and before.channel.id in temp_channels:
