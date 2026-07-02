@@ -74,13 +74,12 @@ class TempVoice(commands.Cog):
                 inline=False
             )
 
+            # WYWOŁANIE POPRAWIONEGO WIDOKU (Usunięto trzeci argument)
+            view = TempVoicePanel(voice_channel.id, text_channel.id)
+
             panel_message = await text_channel.send(
                 embed=embed,
-                view=TempVoicePanel(
-                    voice_channel.id,
-                    text_channel.id,
-                    member.id
-                )
+                view=view
             )
             
             temp_channels[voice_channel.id]["panel_message"] = panel_message.id
@@ -123,7 +122,7 @@ class TempVoice(commands.Cog):
                     except discord.Forbidden:
                         pass
         
-                    # Zaktualizuj panel
+                    # Zaktualizuj panel oraz podepnij na nowo widok dla nowego właściciela
                     try:
                         panel_message = await text_channel.fetch_message(
                             channel_data["panel_message"]
@@ -142,8 +141,9 @@ class TempVoice(commands.Cog):
                             inline=False
                         )
             
-                        # Edytujemy wyłącznie treść Embedu
-                        await panel_message.edit(embed=embed)
+                        # Generujemy świeżą instancję widoku, by zaktualizować logikę przycisków
+                        new_view = TempVoicePanel(before.channel.id, text_channel.id)
+                        await panel_message.edit(embed=embed, view=new_view)
                     
                     except (discord.NotFound, discord.Forbidden):
                         pass
