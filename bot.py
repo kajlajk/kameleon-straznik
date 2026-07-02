@@ -12,6 +12,7 @@ TOKEN = os.getenv("TOKEN")
 OWNER_ID = 765301434350567426
 SZUKAM_CHANNEL = 1515570301172449362
 CHAT_CHANNEL = 1515567593694691413
+ADMIN_CHANNEL = 1515593063639285810
 SZUKAM_ROLE = 1515875177852833872
 SCREENY_CHANNEL = 1515570115515650068  
 LOG_CHANNEL_ID = 1521585275229442178
@@ -64,7 +65,16 @@ random_texts = [
     "😴 Chwila spokoju? Podejrzane.",
     "🦎 Kameleon melduje gotowość.",
     "🍃 Pamiętajcie o kulturze rozmowy.",
-    "🤔 Ciekawe kto pierwszy napisze na czacie."
+    "🤔 Ciekawe kto pierwszy napisze na czacie.",
+    "🔍 Logi czyste. Przynajmniej na razie.",
+    "💾 Zapisywanie stanu serwera... Gotowe.",
+    "🧯 W razie dramy, gaśnica jest pod ręką.",
+    "📝 Protokół spokoju: aktywny.",
+    "🦎 Kameleon wtopił się w tło, piszcie śmiało.",
+    "🔋 Baterie naładowane na 100%. Mogę moderować.",
+    "☁️ Przelotne opady spamu niewykryte.",
+    "🕵️‍♂️ Rutynowa kontrola wątków. Nic tu nie ma.",
+    "☕ Ktoś stawia kawę dla bota?"
 ]
 
 reply_texts = [
@@ -83,7 +93,22 @@ reply_texts = [
     "😎 Bez paniki.",
     "📋 Zanotowano.",
     "🚔 Kontynuuj, słucham.",
-    "🤨 Aha Gratulacje, wygrywasz bana."
+    "🤨 Aha Gratulacje, wygrywasz bana.",
+    "👁️ Widzę, słyszę, nie komentuję.",
+    "🤖 Procedury bezpieczeństwa zachowane.",
+    "📁 Dodano do bazy danych.",
+    "🤷 I co w związku z tym?",
+    "⏳ Czas ucieka, a ty dalej tutaj.",
+    "🤐 No i po co te nerwy?",
+    "🥱 Standardowa odpowiedź dla standardowego użytkownika.",
+    "🔋 Poziom mojej uwagi: niski.",
+    "🗺️ Przeskanowano teren. Bez zmian.",
+    "📝 Kolejny wpis do pamiętnika bota.",
+    "🛑 Nic dodać, nic ująć.",
+    "🧠 Analizuję poziom tego wątku...",
+    "🔍 Wynik analizy: brak argumentów.",
+    "🧯 Potrzebna gaśnica do tego pożaru?",
+    "🎭 Piękny występ, ale kurtyna opada."
 ]
 
 intents = discord.Intents.default()
@@ -183,9 +208,7 @@ async def on_message(message):
                 await message.add_reaction("👍")
                 await message.add_reaction("😂")
                 await message.add_reaction("❤️")
-            except discord.Forbidden:
-                pass
-            except discord.HTTPException:
+            except (discord.Forbidden, discord.HTTPException):
                 pass
 
     global last_random_message
@@ -217,11 +240,12 @@ async def on_message(message):
                 if message.author.id not in answered_users:
                     response = random.choice(reply_texts)
 
-                    while (
-                        last_reply_text is not None
-                        and response == last_reply_text
-                    ):
-                        response = random.choice(reply_texts)
+                    if len(reply_texts) > 1:
+                        while (
+                            last_reply_text is not None
+                            and response == last_reply_text
+                        ):
+                            response = random.choice(reply_texts)
 
                     await message.reply(response)
 
@@ -234,7 +258,7 @@ async def on_message(message):
     if message.content.lower() == "/spokojnie":
         if (
             message.author.id == OWNER_ID
-            and message.channel.id == 1515593063639285810
+            and message.channel.id == ADMIN_CHANNEL
         ):
             channel = bot.get_channel(CHAT_CHANNEL)
 
@@ -268,20 +292,38 @@ async def on_message(message):
                 "🤖 Speedrun do ciekawa wpisu w logach.",
                 "🤖 Wykryto nietypową aktywność użytkowników.",
                 "🤖 Kontynuujcie, jestem zaintrygowany.",
-                "🤖 Kameleon nie ocenia. Kameleon obserwuje. 🦎"
+                "🤖 Kameleon nie ocenia. Kameleon obserwuje. 🦎",
+                "🤖 Wykryto podwyższone tętno sekcji tekstowej. Monitoruję.",
+                "🤖 Analiza nastrojów... zalecane ochłodzenie emocji.",
+                "🤖 Czytanie tego wątku wymaga ode mnie restartu procesora.",
+                "🤖 Uwaga: Logi systemowe zapełniają się w zastraszającym tempie.",
+                "🤖 Wpis w kartotece: 'Brak panowania nad klawiaturą'.",
+                "🤖 Ciekawy dobór słów. Moderatorzy na pewno to docenią.",
+                "🤖 Spokojnie, po prostu robię zrzuty ekranu.",
+                "🤖 Ktoś tu bardzo chce przetestować system automatycznych kar.",
+                "🤖 Nie przeszkadzajcie sobie, algorytm bacznie notuje każde słowo.",
+                "🤖 Oho, widzę, że regulamin znowu stał się tylko sugestią.",
+                "🤖 Sprawa jest rozwojowa. Czekam na dalsze zeznania.",
+                "🤖 Dział skarg i zażaleń bota jest aktualnie nieczynny.",
+                "🤖 Temperatura dyskusji przekracza normy fabryczne.",
+                "🤖 Człowieku, nie denerwuj maszyny.",
+                "🤖 Zgłoszenie przyjęte. Trwa przetwarzanie winowajców..."
             ]
-            await channel.send(random.choice(teksty))
-            await message.delete()
+            try:
+                await channel.send(random.choice(teksty))
+                await message.delete()
+            except Exception as e:
+                print(f"Błąd komendy /spokojnie: {e}")
 
         return
 
     if len(message.mentions) > 3:
-        await message.delete()
         try:
+            await message.delete()
             await message.author.send(
                 "Możesz oznaczyć maksymalnie 3 osoby w jednej wiadomości."
             )
-        except:
+        except Exception:
             pass
         return
 
@@ -290,41 +332,40 @@ async def on_message(message):
     if role_pinged:
         # Ping poza #szukam-do-gry
         if message.channel.id != SZUKAM_CHANNEL:
-            await message.delete()
-    
-            warnings[message.author.id] = warnings.get(message.author.id, 0) + 1
-    
-            if warnings[message.author.id] == 1:
-                try:
+            try:
+                await message.delete()
+                warnings[message.author.id] = warnings.get(message.author.id, 0) + 1
+        
+                if warnings[message.author.id] == 1:
                     await message.author.send(
                         f"{message.author.mention} Rola Szukam do gry może być używana tylko na kanale Szukam do gry."
                     )
-                except:
-                    pass
-    
-            elif warnings[message.author.id] == 2:
-                await message.author.timeout(
-                    timedelta(minutes=20),
-                    reason="Pingowanie roli poza #szukam-do-gry"
-                )
-    
-            elif warnings[message.author.id] >= 3:
-                await message.author.timeout(
-                    timedelta(hours=1),
-                    reason="Wielokrotne pingowanie roli poza #szukam-do-gry"
-                )
-    
+        
+                elif warnings[message.author.id] == 2:
+                    await message.author.timeout(
+                        timedelta(minutes=20),
+                        reason="Pingowanie roli poza #szukam-do-gry"
+                    )
+        
+                elif warnings[message.author.id] >= 3:
+                    await message.author.timeout(
+                        timedelta(hours=1),
+                        reason="Wielokrotne pingowanie roli poza #szukam-do-gry"
+                    )
+            except Exception as e:
+                print(f"Błąd moderacji pingu roli: {e}")
+        
             return
 
         # Cooldown na kanał głosowy
         if message.channel.id == SZUKAM_CHANNEL:
             if not message.author.voice:
-                await message.delete()
                 try:
+                    await message.delete()
                     await message.author.send(
                         "Aby użyć @Szukam do gry, musisz siedzieć na kanale głosowym."
                     )
-                except:
+                except Exception:
                     pass
                 return
 
@@ -333,12 +374,12 @@ async def on_message(message):
 
             if voice_channel.id in channel_cooldowns:
                 if now - channel_cooldowns[voice_channel.id] < 1200:
-                    await message.delete()
                     try:
+                        await message.delete()
                         await message.author.send(
                             "Ktoś z twojego kanału głosowego użył już @Szukam do gry w ciągu ostatnich 20 minut."
                         )
-                    except:
+                    except Exception:
                         pass
                     return
 
@@ -445,6 +486,8 @@ async def check_timeouts():
                 embed.set_footer(text=f"ID użytkownika: {user.id}")
 
                 await log_channel.send(embed=embed)
+
+        # Usunięto nadmiarowy wcięty kod z końca pętli, aby zapobiec błędom składni
 
     except Exception as e:
         print(f"[BŁĄD TIMEOUT LOOP]: {e}")
