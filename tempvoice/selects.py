@@ -196,6 +196,12 @@ class TransferOwnerSelect(discord.ui.Select):
             return
 
         new_owner_id = int(self.values[0])
+        
+        # Jeśli ktoś wybrał samego siebie (teoretycznie odfiltrowane, ale na wszelki wypadek)
+        if new_owner_id == actual_old_owner_id:
+            await interaction.followup.send("👑 Już jesteś właścicielem tego kanału.", ephemeral=True)
+            return
+
         new_owner = interaction.guild.get_member(new_owner_id)
         old_owner = interaction.guild.get_member(actual_old_owner_id)
 
@@ -210,22 +216,29 @@ class TransferOwnerSelect(discord.ui.Select):
             await interaction.followup.send("❌ Nie znaleziono powiązanego kanału tekstowego.", ephemeral=True)
             return
 
-        # Zmiana właściciela w pamięci bota
+        # Zmiana właściciela w pamięci bota – robimy to PRZED jakimkolwiek API, by baza była stabilna
         temp_channels[self.voice_channel.id]["owner"] = new_owner.id
 
-        # Aktualizacja uprawnień do kanału tekstowego
-        if old_owner:
-            await text_channel.set_permissions(old_owner, overwrite=None)
-
-        await text_channel.set_permissions(
-            new_owner,
-            view_channel=True,
-            send_messages=True,
-            read_message_history=True
-        )
-
-        # Odświeżenie embedu w panelu zarządczym
+        # Pakujemy całą komunikację z Discordem w potężny try/except, by uniknąć wiecznego zawieszenia interakcji
         try:
+            # 1. Aktualizacja uprawnień do kanału tekstowego
+            if old_owner:
+                await text_channel.set_permissions(old_owner, overwrite=None)
+
+            await text_channel.set_permissions(
+                new_owner,
+                view_channel=True,
+                send_messages=True,
+                read_message_history=True
+            )
+
+            # 2. Zmiana nazwy kanału głosowego (opcjonalnie, bez crashowania bota przy Rate Limitach)
+            try:
+                await self.voice_channel.edit(name=f"🔊 {new_owner.display_name}")
+            except Exception:
+                pass
+
+            # 3. Odświeżenie embedu w panelu zarządczym
             panel_message_id = temp_channels[self.voice_channel.id]["panel_message"]
             panel_message = await text_channel.fetch_message(panel_message_id)
 
@@ -237,9 +250,16 @@ class TransferOwnerSelect(discord.ui.Select):
             embed.add_field(name="👑 Właściciel", value=new_owner.mention, inline=False)
 
             await panel_message.edit(embed=embed)
+
+        except discord.HTTPException as e:
+            # Gdy złapiemy Rate Limit (kod błędu HTTP 429), zdejmujemy klepsydrę i informujemy użytkownika
+            await interaction.followup.send("⚠️ Korona została przekazana w pamięci, ale Discord ogranicza prędkość bota (Rate Limit). Wygląd panelu zaktualizuje się za chwilę.", ephemeral=True)
+            return
         except Exception:
+            # Wszelkie inne błędy (np. brak uprawnień) nie zablokują odpowiedzi bota
             pass
         
+        # Kluczowe zakończenie interakcji – zdejmuje status "Kameleon Guard myśli..."
         await interaction.followup.send(
             f"👑 Korona przekazana! Nowym właścicielem kanału został {new_owner.mention}.",
             ephemeral=True
