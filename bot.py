@@ -89,4 +89,23 @@ reply_texts = [
 intents = discord.Intents.default()
 intents.message_content = True
 intents.members = True
-intents.
+intents.voice_states = True
+
+bot = commands.Bot(command_prefix="!", intents=intents)
+
+
+@bot.event
+async def on_ready():
+    print("BOT ONLINE TEST OK")
+    print("NOWA WERSJA BOTA")
+    print(f"Zalogowano jako {bot.user}")
+
+    if not check_timeouts.is_running():
+        check_timeouts.start()
+    
+
+@bot.event
+async def on_message(message):
+    if message.author.bot:
+        # Obsługa wiadomości od StartIT
+        if message.author.id == STARTIT
