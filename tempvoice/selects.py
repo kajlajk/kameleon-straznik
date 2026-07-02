@@ -36,41 +36,41 @@ class KickUserSelect(discord.ui.Select):
             )
             
         self.voice_channel = voice_channel
-        
 
     async def callback(self, interaction: discord.Interaction):
         await interaction.response.defer(ephemeral=True)
 
         if self.values[0] == "none":
-            await interaction.followup.send("Nie możesz wykonać tej akcji.", ephemeral=True)
+            await interaction.followup.send("❌ Nie możesz wykonać tej akcji.", ephemeral=True)
             return
 
         member_id = int(self.values[0])
         member = self.voice_channel.guild.get_member(member_id)
         
         if not member:
-            await interaction.followup.send("Nie znaleziono użytkownika na serwerze.", ephemeral=True)
+            await interaction.followup.send("❌ Nie znaleziono użytkownika na serwerze.", ephemeral=True)
             return
 
         if member not in self.voice_channel.members:
-            await interaction.followup.send("Ten użytkownik zdążył już opuścić kanał.", ephemeral=True)
+            await interaction.followup.send("⚠️ Ten użytkownik zdążył już opuścić kanał.", ephemeral=True)
             return
 
         try:
             # 1. Rozłączenie użytkownika z kanału głosowego
             await member.move_to(None, reason="Wyrzucony przez właściciela kanału TempVoice.")
             
-            # 2. Zablokowanie możliwości ponownego wejścia (connect=False)
-            await self.voice_channel.set_permissions(member, connect=False, reason="Ban na kanał TempVoice.")
+            # 2. Zablokowanie możliwości ponownego wejścia za pomocą jednoznacznego Overwrite
+            overwrite = discord.PermissionOverwrite(connect=False)
+            await self.voice_channel.set_permissions(member, overwrite=overwrite, reason="Ban na kanał TempVoice.")
             
             # 3. Zapis ID użytkownika do listy zbanowanych w temp_channels
             if self.voice_channel.id in temp_channels:
                 temp_channels[self.voice_channel.id]["banned"].add(member_id)
 
-            await interaction.followup.send(f"Pomyślnie wyrzucono i zablokowano użytkownika {member.mention}.", ephemeral=True)
+            await interaction.followup.send(f"👢 Pomyślnie wyrzucono i zablokowano użytkownika {member.mention}.", ephemeral=True)
             
         except discord.Forbidden:
-            await interaction.followup.send("Bot nie posiada uprawnień (Zarządzanie kanałami / Wyrzucanie), aby wykonać tę akcję.", ephemeral=True)
+            await interaction.followup.send("❌ Bot nie posiada uprawnień (Zarządzanie kanałami / Wyrzucanie), aby wykonać tę akcję.", ephemeral=True)
         except Exception:
             await interaction.followup.send("❌ Wystąpił nieoczekiwany błąd.", ephemeral=True)
         
@@ -82,14 +82,15 @@ class UnbanUserSelect(discord.ui.Select):
         data = temp_channels.get(voice_channel.id)
 
         if data:
-            for user_id in data["banned"]:
+            # Zabezpieczenie: Maksymalnie 25 opcji w Menu rozwijanym
+            for user_id in list(data["banned"])[:25]:
                 member = voice_channel.guild.get_member(user_id)
                 if member:
                     label = member.display_name
                     description = f"@{member.name}"
                 else:
                     label = "Nieznany użytkownik"
-                    description = str(user_id)
+                    description = f"ID: {user_id}"
 
                 options.append(
                     discord.SelectOption(
@@ -113,7 +114,7 @@ class UnbanUserSelect(discord.ui.Select):
             )
         else:
             super().__init__(
-                placeholder="Wybierz użytkownika...",
+                placeholder="Wybierz użytkownika, którego chcesz odbanować...",
                 options=options,
                 min_values=1,
                 max_values=1
@@ -130,17 +131,17 @@ class UnbanUserSelect(discord.ui.Select):
         member = interaction.guild.get_member(user_id)
 
         try:
-            if member:
-                await self.voice_channel.set_permissions(member, overwrite=None)
+            # Usuwamy indywidualne nadpisanie uprawnień (zarówno dla obecnych na serwerze, jak i tych, co wyszli)
+            target = member if member else discord.Object(id=user_id)
+            await self.voice_channel.set_permissions(target, overwrite=None)
 
             if self.voice_channel.id in temp_channels:
                 temp_channels[self.voice_channel.id]["banned"].discard(user_id)
 
-            await interaction.followup.send("✅ Użytkownik został odbanowany.", ephemeral=True)
+            await interaction.followup.send("✅ Użytkownik został pomyślnie odbanowany.", ephemeral=True)
         except Exception:
             await interaction.followup.send("❌ Wystąpił błąd podczas odbanowywania.", ephemeral=True)
 
-import discord
 
 class TransferOwnerSelect(discord.ui.Select):
     def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
@@ -171,7 +172,7 @@ class TransferOwnerSelect(discord.ui.Select):
             )
         else:
             super().__init__(
-                placeholder="Wybierz nowego właściciela...",
+                placeholder="Wybierz nowego właściciela kanału...",
                 options=options,
                 min_values=1,
                 max_values=1
@@ -185,24 +186,28 @@ class TransferOwnerSelect(discord.ui.Select):
             return
 
         if self.voice_channel.id not in temp_channels:
-            await interaction.followup.send("❌ Nie znaleziono danych kanału.", ephemeral=True)
+            await interaction.followup.send("❌ Nie znaleziono danych tego kanału w pamięci bota.", ephemeral=True)
+            return
+
+        # Sprawdzenie, czy osoba klikająca to wciąż ta sama osoba, która figuruje jako właściciel
+        actual_old_owner_id = temp_channels[self.voice_channel.id]["owner"]
+        if interaction.user.id != actual_old_owner_id:
+            await interaction.followup.send("❌ Nie jesteś już właścicielem tego kanału.", ephemeral=True)
             return
 
         new_owner_id = int(self.values[0])
-        old_owner_id = temp_channels[self.voice_channel.id]["owner"]
-
         new_owner = interaction.guild.get_member(new_owner_id)
-        old_owner = interaction.guild.get_member(old_owner_id)
+        old_owner = interaction.guild.get_member(actual_old_owner_id)
 
         if new_owner is None:
-            await interaction.followup.send("❌ Nie znaleziono nowego właściciela.", ephemeral=True)
+            await interaction.followup.send("❌ Nie znaleziono nowego właściciela na tym serwerze.", ephemeral=True)
             return
 
         text_channel_id = temp_channels[self.voice_channel.id]["text_channel"]
         text_channel = interaction.guild.get_channel(text_channel_id)
 
         if text_channel is None:
-            await interaction.followup.send("❌ Nie znaleziono kanału tekstowego.", ephemeral=True)
+            await interaction.followup.send("❌ Nie znaleziono powiązanego kanału tekstowego.", ephemeral=True)
             return
 
         # Zmiana właściciela w pamięci bota
@@ -236,6 +241,6 @@ class TransferOwnerSelect(discord.ui.Select):
             pass
         
         await interaction.followup.send(
-            f"👑 Właścicielem kanału został {new_owner.mention}.",
+            f"👑 Korona przekazana! Nowym właścicielem kanału został {new_owner.mention}.",
             ephemeral=True
         )
