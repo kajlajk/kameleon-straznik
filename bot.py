@@ -13,9 +13,19 @@ OWNER_ID = 765301434350567426
 SZUKAM_CHANNEL = 1515570301172449362
 CHAT_CHANNEL = 1515567593694691413
 ADMIN_CHANNEL = 1515593063639285810
-SZUKAM_ROLE = 1515875177852833872
 SCREENY_CHANNEL = 1515570115515650068  
 LOG_CHANNEL_ID = 1521585275229442178
+
+# ==============================================================================
+# TUTAJ WPISZ ID WSZYSTKICH RÓL "SZUKAM DO GRY" (Meccha, R.E.P.O, PEAK, Phasmo itp.)
+# ==============================================================================
+SZUKAM_ROLES_IDS = {
+    1515875177852833872,  # Dotychczasowa rola (np. Meccha)
+    1523300055430332467,  # <--- WPISZ TU ID ROLI: Szukam ekipy R.E.P.O.
+    1523305698031698153,  # <--- WPISZ TU ID ROLI: Szukam ekipy PEAK
+    1523304847452143697,  
+    1523305849009999993
+}
 
 STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
@@ -31,7 +41,7 @@ level_messages = [
     "🎉 Gratulacje {mention} za zdobycie **{level} poziomu!** 🦎",
     "⭐ Brawo {mention}! Właśnie osiągnąłeś **{level} poziom**!",
     "🔥 Świetna robota {mention}! Kolejny poziom zdobyty!",
-    "🎊 {mention}, gratulacje! Już **{level} poziom**! Tak trzymaj!",
+    "🎊 {mention}, gratulacje! Już **{level} poziom**! Tak timaj!",
     "💚 Kameleon jest z Ciebie dumny, {mention}! Wbiłeś **{level} poziom**!",
     "🚀 {mention}, wskakujesz na **{level} poziom**! Gratulacje!",
     "🏆 Brawo {mention}! Zdobyłeś **{level} poziom**!",
@@ -132,7 +142,6 @@ async def on_ready():
 @bot.event
 async def on_message(message):
     if message.author.bot:
-        # Obsługa wiadomości od StartIT
         if message.author.id == STARTIT_BOT_ID:
             try:
                 if "zdobył(a)" in message.content:
@@ -327,7 +336,10 @@ async def on_message(message):
             pass
         return
 
-    role_pinged = any(role.id == SZUKAM_ROLE for role in message.role_mentions)
+    # ==============================================================================
+    # SPRAWDZANIE, CZY KTÓRAKOLWIEK Z RÓL "SZUKAM DO GRY" ZOSTAŁA OZNACZONA
+    # ==============================================================================
+    role_pinged = any(role.id in SZUKAM_ROLES_IDS for role in message.role_mentions)
     
     if role_pinged:
         # Ping poza #szukam-do-gry
@@ -338,19 +350,19 @@ async def on_message(message):
         
                 if warnings[message.author.id] == 1:
                     await message.author.send(
-                        f"{message.author.mention} Rola Szukam do gry może być używana tylko na kanale Szukam do gry."
+                        f"{message.author.mention} Role z kategorii 'Szukam do gry' mogą być używane tylko na dedykowanym kanale Szukam do gry."
                     )
         
                 elif warnings[message.author.id] == 2:
                     await message.author.timeout(
                         timedelta(minutes=20),
-                        reason="Pingowanie roli poza #szukam-do-gry"
+                        reason="Pingowanie roli Szukam do gry poza wyznaczonym kanałem"
                     )
         
                 elif warnings[message.author.id] >= 3:
                     await message.author.timeout(
                         timedelta(hours=1),
-                        reason="Wielokrotne pingowanie roli poza #szukam-do-gry"
+                        reason="Wielokrotne pingowanie roli Szukam do gry poza wyznaczonym kanałem"
                     )
             except Exception as e:
                 print(f"Błąd moderacji pingu roli: {e}")
@@ -363,7 +375,7 @@ async def on_message(message):
                 try:
                     await message.delete()
                     await message.author.send(
-                        "Aby użyć @Szukam do gry, musisz siedzieć na kanale głosowym."
+                        "Aby użyć roli Szukam do gry, musisz przebywać na kanale głosowym."
                     )
                 except Exception:
                     pass
@@ -377,7 +389,7 @@ async def on_message(message):
                     try:
                         await message.delete()
                         await message.author.send(
-                            "Ktoś z twojego kanału głosowego użył już @Szukam do gry w ciągu ostatnich 20 minut."
+                            "Ktoś z twojego kanału głosowego użył już roli Szukam do gry w ciągu ostatnich 20 minut."
                         )
                     except Exception:
                         pass
@@ -402,13 +414,11 @@ async def check_timeouts():
         if log_channel is None:
             return
 
-        # Przy pierwszym uruchomieniu zapisujemy ID najnowszego wpisu
         if last_timeout_entry is None:
             async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.member_update):
                 last_timeout_entry = entry.id
             return
 
-        # Pobieramy do 5 ostatnich wpisów, na wypadek gdyby wydarzyło się kilka zmian na raz
         actions = []
         async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.member_update):
             if entry.id == last_timeout_entry:
@@ -418,14 +428,12 @@ async def check_timeouts():
         if not actions:
             return
 
-        # Aktualizujemy najnowszy wpis w pamięci (przetwarzamy od najstarszego do najnowszego)
         last_timeout_entry = actions[0].id
 
         for entry in reversed(actions):
             before_timeout = entry.before.timed_out_until
             after_timeout = entry.after.timed_out_until
 
-            # Jeśli czas timeoutu się nie zmienił, ignorujemy ten wpis (np. zmiana nicku/roli)
             if before_timeout == after_timeout:
                 continue
 
@@ -434,9 +442,6 @@ async def check_timeouts():
             reason = entry.reason or "Brak powodu"
             avatar_url = user.display_avatar.url if user.display_avatar else None
 
-            # ==========================
-            # Zdjęto timeout
-            # ==========================
             if after_timeout is None:
                 embed = discord.Embed(
                     title="🔓 Zdjęto timeout",
@@ -454,9 +459,6 @@ async def check_timeouts():
 
                 await log_channel.send(embed=embed)
 
-            # ==========================
-            # Nadano timeout
-            # ==========================
             else:
                 timestamp = int(after_timeout.timestamp())
                 remaining = after_timeout - datetime.now(timezone.utc)
@@ -486,8 +488,6 @@ async def check_timeouts():
                 embed.set_footer(text=f"ID użytkownika: {user.id}")
 
                 await log_channel.send(embed=embed)
-
-        # Usunięto nadmiarowy wcięty kod z końca pętli, aby zapobiec błędom składni
 
     except Exception as e:
         print(f"[BŁĄD TIMEOUT LOOP]: {e}")
