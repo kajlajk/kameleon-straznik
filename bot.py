@@ -336,9 +336,11 @@ async def on_message(message):
             pass
         return
 
-    role_pinged = any(role.id in SZUKAM_ROLES_IDS for role in message.role_mentions)
+    # Wykrywamy, jaka dokładnie rola została oznaczona
+    pinged_roles = [role for role in message.role_mentions if role.id in SZUKAM_ROLES_IDS]
     
-    if role_pinged:
+    if pinged_roles:
+        # Ping poza #szukam-do-gry
         if message.channel.id != SZUKAM_CHANNEL:
             try:
                 await message.delete()
@@ -365,6 +367,7 @@ async def on_message(message):
         
             return
 
+        # Prawidłowy ping na kanale #szukam-do-gry
         if message.channel.id == SZUKAM_CHANNEL:
             if not message.author.voice:
                 try:
@@ -379,6 +382,7 @@ async def on_message(message):
             voice_channel = message.author.voice.channel
             now = time.time()
 
+            # Sprawdzenie cooldownu kanału
             if voice_channel.id in channel_cooldowns:
                 if now - channel_cooldowns[voice_channel.id] < 1200:
                     try:
@@ -391,6 +395,44 @@ async def on_message(message):
                     return
 
             channel_cooldowns[voice_channel.id] = now        
+            
+            # ==================================================================
+            # SYSTEM OGŁOSZEŃ LIVE DLA TEMP VOICE
+            # ==================================================================
+            try:
+                role_to_ping = pinged_roles[0] # Pobieramy pierwszą oznaczoną rolę gry
+                
+                # Zliczamy osoby na kanale tymczasowym i sprawdzamy limit
+                current_players = len(voice_channel.members)
+                max_players = voice_channel.user_limit
+                
+                slots_text = f"{current_players} osób"
+                if max_players > 0:
+                    slots_text = f"{current_players} / {max_players} (Wolne miejsca: {max_players - current_players})"
+
+                # Tworzymy ładną kartę ogłoszenia gry
+                embed = discord.Embed(
+                    title="🎮 Szukamy graczy do wspólnej rozgrywki!",
+                    description=f"Użytkownik {message.author.mention} zaprasza do gry.",
+                    color=role_to_ping.color if role_to_ping.color.value != 0 else discord.Color.blue()
+                )
+                embed.add_field(name="📌 Oznaczona rola", value=role_to_ping.mention, inline=True)
+                embed.add_field(name="🔊 Kanał głosowy", value=f"**{voice_channel.name}**", inline=True)
+                embed.add_field(name="👥 Status lobby", value=slots_text, inline=False)
+                
+                if message.author.display_avatar:
+                    embed.set_thumbnail(url=message.author.display_avatar.url)
+                
+                embed.set_footer(text="Kliknij na nazwę kanału po lewej stronie, aby dołączyć!")
+                embed.timestamp = datetime.now(timezone.utc)
+
+                # Kasujemy oryginalną wiadomość z samym pingiem i wysyłamy profesjonalny Ping + Embed
+                await message.delete()
+                await message.channel.send(content=role_to_ping.mention, embed=embed)
+                return 
+
+            except Exception as e:
+                print(f"[BŁĄD GENEROWANIA EMBEDA GRY]: {e}")
             
     await bot.process_commands(message)
 
@@ -488,9 +530,6 @@ async def check_timeouts():
         print(f"[BŁĄD TIMEOUT LOOP]: {e}")
 
 
-# ==============================================================================
-# PĘTLA AKTUALIZACJI STATUSU (CO 10 MINUT) - WERSJA DEDYKOWANA BEZ "OGLĄDA"
-# ==============================================================================
 @tasks.loop(minutes=10)
 async def update_member_status():
     """Pętla aktualizująca status bota na podstawie liczby osób na serwerze."""
@@ -501,7 +540,6 @@ async def update_member_status():
         guild = bot.guilds[0]
         member_count = guild.member_count
         
-        # CustomActivity sprawia, że wyświetla się tylko i wyłącznie wpisany tekst
         activity = discord.CustomActivity(
             name=f"🛡️ Pilnuje: {member_count} użytkowników 🦎"
         )
