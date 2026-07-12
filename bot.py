@@ -132,11 +132,9 @@ async def on_ready():
     print("NOWA WERSJA BOTA")
     print(f"Zalogowano jako {bot.user}")
 
-    # Uruchomienie pętli od timeoutów
     if not check_timeouts.is_running():
         check_timeouts.start()
         
-    # URUCHOMIENIE NOWEJ PĘTLI STATUSU (Liczba osób na serwerze)
     if not update_member_status.is_running():
         update_member_status.start()
     
@@ -491,7 +489,7 @@ async def check_timeouts():
 
 
 # ==============================================================================
-# PĘTLA AKTUALIZACJI STATUSU (CO 10 MINUT)
+# PĘTLA AKTUALIZACJI STATUSU (CO 10 MINUT) - WERSJA DEDYKOWANA BEZ "OGLĄDA"
 # ==============================================================================
 @tasks.loop(minutes=10)
 async def update_member_status():
@@ -503,10 +501,9 @@ async def update_member_status():
         guild = bot.guilds[0]
         member_count = guild.member_count
         
-        # Ogląda: X użytkowników 🦎
-        activity = discord.Activity(
-            type=discord.ActivityType.watching, 
-            name=f"{member_count} użytkowników 🦎"
+        # CustomActivity sprawia, że wyświetla się tylko i wyłącznie wpisany tekst
+        activity = discord.CustomActivity(
+            name=f"🛡️ Pilnuje: {member_count} użytkowników 🦎"
         )
         
         await bot.change_presence(activity=activity)
