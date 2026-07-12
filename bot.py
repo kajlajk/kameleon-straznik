@@ -16,13 +16,10 @@ ADMIN_CHANNEL = 1515593063639285810
 SCREENY_CHANNEL = 1515570115515650068  
 LOG_CHANNEL_ID = 1521585275229442178
 
-# ==============================================================================
-# TUTAJ WPISZ ID WSZYSTKICH RÓL "SZUKAM DO GRY" (Meccha, R.E.P.O, PEAK, Phasmo itp.)
-# ==============================================================================
 SZUKAM_ROLES_IDS = {
-    1515875177852833872,  # Dotychczasowa rola (np. Meccha)
-    1523300055430332467,  # <--- WPISZ TU ID ROLI: Szukam ekipy R.E.P.O.
-    1523305698031698153,  # <--- WPISZ TU ID ROLI: Szukam ekipy PEAK
+    1515875177852833872,  
+    1523300055430332467,  
+    1523305698031698153,  
     1523304847452143697,  
     1523305849009999993
 }
@@ -135,8 +132,13 @@ async def on_ready():
     print("NOWA WERSJA BOTA")
     print(f"Zalogowano jako {bot.user}")
 
+    # Uruchomienie pętli od timeoutów
     if not check_timeouts.is_running():
         check_timeouts.start()
+        
+    # URUCHOMIENIE NOWEJ PĘTLI STATUSU (Liczba osób na serwerze)
+    if not update_member_status.is_running():
+        update_member_status.start()
     
 
 @bot.event
@@ -336,13 +338,9 @@ async def on_message(message):
             pass
         return
 
-    # ==============================================================================
-    # SPRAWDZANIE, CZY KTÓRAKOLWIEK Z RÓL "SZUKAM DO GRY" ZOSTAŁA OZNACZONA
-    # ==============================================================================
     role_pinged = any(role.id in SZUKAM_ROLES_IDS for role in message.role_mentions)
     
     if role_pinged:
-        # Ping poza #szukam-do-gry
         if message.channel.id != SZUKAM_CHANNEL:
             try:
                 await message.delete()
@@ -369,7 +367,6 @@ async def on_message(message):
         
             return
 
-        # Cooldown na kanał głosowy
         if message.channel.id == SZUKAM_CHANNEL:
             if not message.author.voice:
                 try:
@@ -491,6 +488,32 @@ async def check_timeouts():
 
     except Exception as e:
         print(f"[BŁĄD TIMEOUT LOOP]: {e}")
+
+
+# ==============================================================================
+# PĘTLA AKTUALIZACJI STATUSU (CO 10 MINUT)
+# ==============================================================================
+@tasks.loop(minutes=10)
+async def update_member_status():
+    """Pętla aktualizująca status bota na podstawie liczby osób na serwerze."""
+    try:
+        if not bot.guilds:
+            return
+            
+        guild = bot.guilds[0]
+        member_count = guild.member_count
+        
+        # Ogląda: X użytkowników 🦎
+        activity = discord.Activity(
+            type=discord.ActivityType.watching, 
+            name=f"{member_count} użytkowników 🦎"
+        )
+        
+        await bot.change_presence(activity=activity)
+        print(f"[STATUS] Zaktualizowano liczbę członków serwera: {member_count}")
+        
+    except Exception as e:
+        print(f"[BŁĄD MEMBER STATUS LOOP]: {e}")
 
 
 async def main():
