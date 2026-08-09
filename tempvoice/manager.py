@@ -3,6 +3,7 @@ from discord.ext import commands
 
 from .data import temp_channels
 from .views import TempVoicePanel
+from .embeds import create_control_panel_embed  # <--- Dodano import nowej funkcji
 
 CREATE_CHANNEL_ID = 1521930171353923787
 CATEGORY_ID = 1515585251475198025
@@ -61,20 +62,8 @@ class TempVoice(commands.Cog):
             # Przeniesienie użytkownika
             await member.move_to(voice_channel)
 
-            # Panel
-            embed = discord.Embed(
-                title="🎛 Zarządzanie kanałem",
-                description="Użyj przycisków poniżej, aby zarządzać swoim kanałem.",
-                color=discord.Color.green()
-            )
-
-            embed.add_field(
-                name="👑 Właściciel",
-                value=member.mention,
-                inline=False
-            )
-
-            # WYWOŁANIE POPRAWIONEGO WIDOKU (Usunięto trzeci argument)
+            # --- NOWY WYGLĄD PANELU ---
+            embed = create_control_panel_embed(member.mention)
             view = TempVoicePanel(voice_channel.id, text_channel.id)
 
             panel_message = await text_channel.send(
@@ -128,21 +117,10 @@ class TempVoice(commands.Cog):
                             channel_data["panel_message"]
                         )
             
-                        # Tworzymy nowy wygląd embeda z nowym właścicielem
-                        embed = discord.Embed(
-                            title="🎛 Zarządzanie kanałem",
-                            description="Użyj przycisków poniżej, aby zarządzać swoim kanałem.",
-                            color=discord.Color.green()
-                        )
-            
-                        embed.add_field(
-                            name="👑 Właściciel",
-                            value=new_owner.mention,
-                            inline=False
-                        )
-            
-                        # Generujemy świeżą instancję widoku, by zaktualizować logikę przycisków
+                        # --- AKTUALIZACJA NA NOWY EMBED DLA NOWEGO WŁAŚCICIELA ---
+                        embed = create_control_panel_embed(new_owner.mention)
                         new_view = TempVoicePanel(before.channel.id, text_channel.id)
+                        
                         await panel_message.edit(embed=embed, view=new_view)
                     
                     except (discord.NotFound, discord.Forbidden):
