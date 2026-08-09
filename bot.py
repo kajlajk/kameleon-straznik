@@ -403,19 +403,20 @@ async def on_message(message):
                 current_players = len(voice_channel.members)
                 max_players = voice_channel.user_limit
                 
+                # Formatowanie statusu lobby
                 if max_players > 0:
                     free_slots = max_players - current_players
                     if free_slots > 0:
-                        slots_text = f"🟢 **{current_players} / {max_players}** *(Wolne miejsca: **{free_slots}**)*"
+                        slots_text = f"🟢 **{current_players}/{max_players} graczy** *(Wolne miejsca: **{free_slots}**)*"
                     else:
-                        slots_text = f"🔴 **{current_players} / {max_players}** *(Lobby jest pełne!)*"
+                        slots_text = f"🔴 **{current_players}/{max_players} graczy** *(Lobby pełne!)*"
                 else:
-                    slots_text = f"🟢 **{current_players}** *(Brak limitu miejsc)*"
+                    slots_text = f"🟢 **{current_players} osób w lobby** *(Brak limitu)*"
 
-                # Wyczyszczenie nazwy roli ze zbędnych słów "Szukam gry" oraz "PING"
+                # Zaawansowane czyszczenie nazwy gry ze wszystkich wariantów nawiasów oraz fraz "PING" i "Szukam gry"
                 role_name_clean = role_to_ping.name
                 role_name_clean = re.sub(r'szukam\s+gry\s*', '', role_name_clean, flags=re.IGNORECASE)
-                role_name_clean = re.sub(r'[\(\<《]\s*PING\s*[\)\>》]', '', role_name_clean, flags=re.IGNORECASE).strip()
+                role_name_clean = re.sub(r'[\(\<\《\[\{].*?PING.*?[\)\>\》\]\}]', '', role_name_clean, flags=re.IGNORECASE).strip()
 
                 embed = discord.Embed(
                     title=f"🎮 Szukamy graczy do {role_name_clean}!",
@@ -438,7 +439,7 @@ async def on_message(message):
                 embed.set_footer(text="Kliknij przycisk poniżej, aby dołączyć do kanału!")
                 embed.timestamp = datetime.now(timezone.utc)
 
-                # Przycisk do szybkiego dołączania
+                # Przycisk przenoszący bezpośrednio do kanału głosowego
                 voice_url = f"https://discord.com/channels/{message.guild.id}/{voice_channel.id}"
                 view = discord.ui.View()
                 view.add_item(discord.ui.Button(label="🔊 Dołącz do kanału głosowego", url=voice_url, style=discord.ButtonStyle.link))
