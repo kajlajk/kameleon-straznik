@@ -239,7 +239,8 @@ async def on_message(message):
         answered_users.clear()
         last_random_message = now
 
-    if message.reference:   
+    # TUTAJ POPRAWKA: Odpowiedzi na oznaczenie bota TYLKO na kanale ogólnym czatu
+    if message.reference and message.channel.id == CHAT_CHANNEL:   
         try:
             replied_message = await message.channel.fetch_message(
                 message.reference.message_id
@@ -336,11 +337,9 @@ async def on_message(message):
             pass
         return
 
-    # Wykrywamy, jaka dokładnie rola została oznaczona
     pinged_roles = [role for role in message.role_mentions if role.id in SZUKAM_ROLES_IDS]
     
     if pinged_roles:
-        # Ping poza #szukam-do-gry
         if message.channel.id != SZUKAM_CHANNEL:
             try:
                 await message.delete()
@@ -367,7 +366,6 @@ async def on_message(message):
         
             return
 
-        # Prawidłowy ping na kanale #szukam-do-gry
         if message.channel.id == SZUKAM_CHANNEL:
             if not message.author.voice:
                 try:
@@ -382,7 +380,6 @@ async def on_message(message):
             voice_channel = message.author.voice.channel
             now = time.time()
 
-            # Sprawdzenie cooldownu kanału
             if voice_channel.id in channel_cooldowns:
                 if now - channel_cooldowns[voice_channel.id] < 1200:
                     try:
@@ -396,13 +393,9 @@ async def on_message(message):
 
             channel_cooldowns[voice_channel.id] = now        
             
-            # ==================================================================
-            # SYSTEM OGŁOSZEŃ LIVE DLA TEMP VOICE
-            # ==================================================================
             try:
-                role_to_ping = pinged_roles[0] # Pobieramy pierwszą oznaczoną rolę gry
+                role_to_ping = pinged_roles[0] 
                 
-                # Zliczamy osoby na kanale tymczasowym i sprawdzamy limit
                 current_players = len(voice_channel.members)
                 max_players = voice_channel.user_limit
                 
@@ -410,7 +403,6 @@ async def on_message(message):
                 if max_players > 0:
                     slots_text = f"{current_players} / {max_players} (Wolne miejsca: {max_players - current_players})"
 
-                # Tworzymy ładną kartę ogłoszenia gry
                 embed = discord.Embed(
                     title="🎮 Szukamy graczy do wspólnej rozgrywki!",
                     description=f"Użytkownik {message.author.mention} zaprasza do gry.",
@@ -426,8 +418,13 @@ async def on_message(message):
                 embed.set_footer(text="Kliknij na nazwę kanału po lewej stronie, aby dołączyć!")
                 embed.timestamp = datetime.now(timezone.utc)
 
-                # Kasujemy oryginalną wiadomość z samym pingiem i wysyłamy profesjonalny Ping + Embed
-                await message.delete()
+                try:
+                    await message.delete()
+                except Exception:
+                    pass
+                
+                await asyncio.sleep(0.3)
+                
                 await message.channel.send(content=role_to_ping.mention, embed=embed)
                 return 
 
@@ -492,7 +489,7 @@ async def check_timeouts():
                 embed.add_field(name="🛡️ Moderator", value=moderator.mention, inline=False)
                 embed.add_field(name="📝 Powód", value=reason, inline=False)
                 embed.timestamp = datetime.now(timezone.utc)
-                embed.set_footer(text=f"ID użytkownika: {user.id}")
+                embed.set_footer(text=f"ID użytkownik: {user.id}")
 
                 await log_channel.send(embed=embed)
 
