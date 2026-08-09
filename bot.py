@@ -4,6 +4,7 @@ import os
 import asyncio
 import time
 import random 
+import re
 from datetime import timedelta, datetime, timezone
 from discord.ext import tasks
 
@@ -25,7 +26,7 @@ SZUKAM_ROLES_IDS = {
     1535659303715868712,
     1535659233813602324,
     1535681013932630097,
-    1535681013932630097
+    1535841911615524894
 }
 
 STARTIT_BOT_ID = 572906387382861835
@@ -405,21 +406,24 @@ async def on_message(message):
                 if max_players > 0:
                     free_slots = max_players - current_players
                     if free_slots > 0:
-                        slots_text = f"## 👥 **{current_players} / {max_players}**\n*(Wolne miejsca: **{free_slots}**)*"
+                        slots_text = f"🟢 **{current_players} / {max_players}** *(Wolne miejsca: **{free_slots}**)*"
                     else:
-                        slots_text = f"## 🚫 **{current_players} / {max_players}**\n*(Lobby pełne!)*"
+                        slots_text = f"🔴 **{current_players} / {max_players}** *(Lobby jest pełne!)*"
                 else:
-                    slots_text = f"## 👥 **{current_players}** osób\n*(Brak limitu)*"
+                    slots_text = f"🟢 **{current_players}** *(Brak limitu miejsc)*"
 
-                role_name_clean = role_to_ping.name.replace("< PING >", "").replace("( PING )", "").strip()
+                # Wyczyszczenie nazwy roli ze zbędnych słów "Szukam gry" oraz "PING"
+                role_name_clean = role_to_ping.name
+                role_name_clean = re.sub(r'szukam\s+gry\s*', '', role_name_clean, flags=re.IGNORECASE)
+                role_name_clean = re.sub(r'[\(\<《]\s*PING\s*[\)\>》]', '', role_name_clean, flags=re.IGNORECASE).strip()
 
                 embed = discord.Embed(
                     title=f"🎮 Szukamy graczy do {role_name_clean}!",
-                    description=f"Użytkownik {message.author.mention} zaprasza do gry.",
+                    description=f"{message.author.mention} szuka graczy i zaprasza do wspólnej rozgrywki!",
                     color=role_to_ping.color if role_to_ping.color.value != 0 else discord.Color.purple()
                 )
                 
-                embed.add_field(name="📌 Oznaczona rola", value=role_to_ping.mention, inline=True)
+                embed.add_field(name="📌 Rola", value=role_to_ping.mention, inline=True)
                 embed.add_field(name="🎧 Kanał głosowy", value=f"**{voice_channel.name}**", inline=True)
                 embed.add_field(name="📊 Status lobby", value=slots_text, inline=False)
                 
@@ -431,8 +435,13 @@ async def on_message(message):
                     icon_url=message.author.display_avatar.url if message.author.display_avatar else None
                 )
                 
-                embed.set_footer(text="Kliknij nazwę kanału głosowego po lewej, aby dołączyć!")
+                embed.set_footer(text="Kliknij przycisk poniżej, aby dołączyć do kanału!")
                 embed.timestamp = datetime.now(timezone.utc)
+
+                # Przycisk do szybkiego dołączania
+                voice_url = f"https://discord.com/channels/{message.guild.id}/{voice_channel.id}"
+                view = discord.ui.View()
+                view.add_item(discord.ui.Button(label="🔊 Dołącz do kanału głosowego", url=voice_url, style=discord.ButtonStyle.link))
 
                 try:
                     await message.delete()
@@ -441,7 +450,7 @@ async def on_message(message):
                 
                 await asyncio.sleep(0.3)
                 
-                await message.channel.send(content=role_to_ping.mention, embed=embed)
+                await message.channel.send(content=role_to_ping.mention, embed=embed, view=view)
                 return 
 
             except Exception as e:
