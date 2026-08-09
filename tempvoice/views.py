@@ -1,3 +1,28 @@
+import discord
+
+from .data import temp_channels
+from .modals import RenameModal, LimitModal
+from .selects import KickUserSelect, UnbanUserSelect, TransferOwnerSelect
+
+
+class KickUserView(discord.ui.View):
+    def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
+        super().__init__(timeout=60)
+        self.add_item(KickUserSelect(voice_channel, owner))
+
+
+class UnbanUserView(discord.ui.View):
+    def __init__(self, voice_channel: discord.VoiceChannel):
+        super().__init__(timeout=60)
+        self.add_item(UnbanUserSelect(voice_channel))
+
+
+class TransferOwnerView(discord.ui.View):
+    def __init__(self, voice_channel: discord.VoiceChannel, owner: discord.Member):
+        super().__init__(timeout=60)
+        self.add_item(TransferOwnerSelect(voice_channel, owner))
+
+
 class TempVoicePanel(discord.ui.View):
     def __init__(self, voice_channel_id: int, text_channel_id: int):
         super().__init__(timeout=None)
@@ -23,7 +48,7 @@ class TempVoicePanel(discord.ui.View):
         
         return True
 
-    # --- WIERSZ 0: ZARZĄDZANIE WŁAŚCIWOŚCIAMI ---
+    # --- WIERSZ 0: USTAWIENIA PODSTAWOWE ---
     @discord.ui.button(
         label="Nazwa",
         emoji="📝",
@@ -61,7 +86,7 @@ class TempVoicePanel(discord.ui.View):
             ephemeral=True
         )
 
-    # --- WIERSZ 1: CONTROL DOSTĘPU ---
+    # --- WIERSZ 1: KONTROLA DOSTĘPU ---
     @discord.ui.button(
         label="Zablokuj",
         emoji="🔒",
