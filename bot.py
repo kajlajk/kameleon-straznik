@@ -38,7 +38,7 @@ level_messages = [
     "🎉 Gratulacje {mention} za zdobycie **{level} poziomu!** 🦎",
     "⭐ Brawo {mention}! Właśnie osiągnąłeś **{level} poziom**!",
     "🔥 Świetna robota {mention}! Kolejny poziom zdobyty!",
-    "🎊 {mention}, gratulacje! Już **{level} poziom**! Tak timaj!",
+    "🎊 {mention}, gratulacje! Już **{level} poziom**! Tak trzymaj!",
     "💚 Kameleon jest z Ciebie dumny, {mention}! Wbiłeś **{level} poziom**!",
     "🚀 {mention}, wskakujesz na **{level} poziom**! Gratulacje!",
     "🏆 Brawo {mention}! Zdobyłeś **{level} poziom**!",
@@ -137,7 +137,7 @@ async def on_ready():
         
     if not update_member_status.is_running():
         update_member_status.start()
-    
+
 
 @bot.event
 async def on_message(message):
@@ -239,7 +239,6 @@ async def on_message(message):
         answered_users.clear()
         last_random_message = now
 
-    # TUTAJ POPRAWKA: Odpowiedzi na oznaczenie bota TYLKO na kanale ogólnym czatu
     if message.reference and message.channel.id == CHAT_CHANNEL:   
         try:
             replied_message = await message.channel.fetch_message(
@@ -399,23 +398,39 @@ async def on_message(message):
                 current_players = len(voice_channel.members)
                 max_players = voice_channel.user_limit
                 
-                slots_text = f"{current_players} osób"
                 if max_players > 0:
-                    slots_text = f"{current_players} / {max_players} (Wolne miejsca: {max_players - current_players})"
+                    free_slots = max_players - current_players
+                    if free_slots > 0:
+                        slots_text = f"`✅ {current_players} / {max_players}` (Wolne miejsca: `{free_slots}`)"
+                    else:
+                        slots_text = f"`🚫 {current_players} / {max_players}` (Lobby pełne!)"
+                else:
+                    slots_text = f"`👥 {current_players}` osób (Brak limitu)"
 
                 embed = discord.Embed(
-                    title="🎮 Szukamy graczy do wspólnej rozgrywki!",
-                    description=f"Użytkownik {message.author.mention} zaprasza do gry.",
-                    color=role_to_ping.color if role_to_ping.color.value != 0 else discord.Color.blue()
+                    title="🎮 WEZWANIE DO GRY! 🎮",
+                    description=(
+                        f"**Pora zebrać ekipę!**\n"
+                        f"{message.author.mention} szuka chętnych do wspólnej zabawy.\n\n"
+                        f"**Szczegóły zgłoszenia:**\n"
+                        f"> 🎯 **Gra:** {role_to_ping.mention}\n"
+                        f"> 🔊 **Kanał:** `{voice_channel.name}`\n"
+                        f"> 👥 **Status:** {slots_text}\n"
+                    ),
+                    color=role_to_ping.color if role_to_ping.color.value != 0 else discord.Color.purple()
                 )
-                embed.add_field(name="📌 Oznaczona rola", value=role_to_ping.mention, inline=True)
-                embed.add_field(name="🔊 Kanał głosowy", value=f"**{voice_channel.name}**", inline=True)
-                embed.add_field(name="👥 Status lobby", value=slots_text, inline=False)
                 
+                # Awatar gracza po prawej stronie jako miniaturka
                 if message.author.display_avatar:
                     embed.set_thumbnail(url=message.author.display_avatar.url)
+
+                # Nagłówek z nickiem gracza i małą ikonką
+                embed.set_author(
+                    name=f"Zaproszenie od {message.author.display_name}", 
+                    icon_url=message.author.display_avatar.url if message.author.display_avatar else None
+                )
                 
-                embed.set_footer(text="Kliknij na nazwę kanału po lewej stronie, aby dołączyć!")
+                embed.set_footer(text="Kliknij nazwę kanału głosowego po lewej, aby dołączyć!")
                 embed.timestamp = datetime.now(timezone.utc)
 
                 try:
