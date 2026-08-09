@@ -20,7 +20,6 @@ class TransferOwnerView(discord.ui.View):
 
 class TempVoicePanel(discord.ui.View):
     def __init__(self, voice_channel_id: int, text_channel_id: int):
-        # Usunięto owner_id z inita, ponieważ pobieramy go dynamicznie ze słownika
         super().__init__(timeout=None)
         self.voice_channel_id = voice_channel_id
         self.text_channel_id = text_channel_id
@@ -32,22 +31,23 @@ class TempVoicePanel(discord.ui.View):
                 ephemeral=True
             )
             return False
-    
+        
         current_owner = temp_channels[self.voice_channel_id].get("owner")
-    
+        
         if interaction.user.id != current_owner:
             await interaction.response.send_message(
                 "❌ Ten panel zarządzania nie należy do Ciebie.",
                 ephemeral=True
             )
             return False
-    
+        
         return True
-    
+
+    # --- WIERSZ 0: Ustawienia Podstawowe ---
     @discord.ui.button(
         label="Nazwa",
         emoji="📝",
-        style=discord.ButtonStyle.primary,
+        style=discord.ButtonStyle.secondary,
         row=0
     )
     async def rename(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -56,12 +56,12 @@ class TempVoicePanel(discord.ui.View):
     @discord.ui.button(
         label="Limit",
         emoji="👥",
-        style=discord.ButtonStyle.primary,
+        style=discord.ButtonStyle.secondary,
         row=0
     )
     async def limit(self, interaction: discord.Interaction, button: discord.ui.Button):
         await interaction.response.send_modal(LimitModal(self.voice_channel_id))
-       
+
     @discord.ui.button(
         label="Zablokuj",
         emoji="🔒",
@@ -81,7 +81,7 @@ class TempVoicePanel(discord.ui.View):
         label="Odblokuj",
         emoji="🔓",
         style=discord.ButtonStyle.success,
-        row=0  # Przeniesiono do row=0, żeby kłódki były obok siebie
+        row=0
     )
     async def unlock(self, interaction: discord.Interaction, button: discord.ui.Button):
         channel = interaction.guild.get_channel(self.voice_channel_id)
@@ -92,6 +92,7 @@ class TempVoicePanel(discord.ui.View):
         await channel.set_permissions(interaction.guild.default_role, connect=None)
         await interaction.response.send_message("🔓 Kanał został odblokowany.", ephemeral=True)
 
+    # --- WIERSZ 1: Moderacja i Zarządzanie ---
     @discord.ui.button(
         label="Wyrzuć",
         emoji="👢",
@@ -103,7 +104,7 @@ class TempVoicePanel(discord.ui.View):
         if voice_channel is None:
             await interaction.response.send_message("❌ Nie znaleziono kanału.", ephemeral=True)
             return
-    
+        
         view = KickUserView(voice_channel, interaction.user)
         await interaction.response.send_message(
             "👢 Wybierz użytkownika z listy, którego chcesz wyrzucić.",
@@ -122,7 +123,7 @@ class TempVoicePanel(discord.ui.View):
         if voice_channel is None:
             await interaction.response.send_message("❌ Nie znaleziono kanału.", ephemeral=True)
             return
-    
+        
         view = UnbanUserView(voice_channel)
         await interaction.response.send_message(
             "🚪 Wybierz użytkownika, któremu chcesz cofnąć blokadę wstępu.",
@@ -133,15 +134,15 @@ class TempVoicePanel(discord.ui.View):
     @discord.ui.button(
         label="Przekaż",
         emoji="👑",
-        style=discord.ButtonStyle.success,
-        row=1  # Przeniesiono do row=1, panel zmieści się teraz idealnie w dwóch rzędach
+        style=discord.ButtonStyle.primary,
+        row=1
     )
     async def transfer(self, interaction: discord.Interaction, button: discord.ui.Button):
         voice_channel = interaction.guild.get_channel(self.voice_channel_id)
         if voice_channel is None:
             await interaction.response.send_message("❌ Nie znaleziono kanału.", ephemeral=True)
             return
-    
+        
         view = TransferOwnerView(voice_channel, interaction.user)
         await interaction.response.send_message(
             "👑 Wybierz osobę, której chcesz oddać koronę właściciela kanału.",
