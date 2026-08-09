@@ -8,15 +8,15 @@ def create_control_panel_embed(owner_mention: str) -> discord.Embed:
             f"👑 **Właściciel:** {owner_mention}\n\n"
             "**Ustawienia podstawowe:**\n"
             "📝 — Zmień nazwę kanału\n"
-            "👥 — Ustaw limit osób na kanale\n\n"
+            "👥 — Ustaw limit osób na kanale\n"
+            "👑 — Przekaż koronę właściciela\n\n"
             "**Dostęp i Moderacja:**\n"
             "🔒 — Zablokuj kanał dla wszystkich\n"
             "🔓 — Odblokuj kanał\n"
             "👢 — Wyrzuć wybranego użytkownika\n"
-            "🚪 — Odbanuj wybranego użytkownika\n"
-            "👑 — Przekaż koroną właściciela"
+            "🚪 — Odbanuj wybranego użytkownika"
         ),
-        color=discord.Color.from_rgb(46, 204, 113)  # Kameleonowa zieleń
+        color=discord.Color.from_rgb(46, 204, 113)
     )
     embed.set_footer(text="Kameleon Guard • Zarządzanie kanałem tymczasowym")
     return embed
