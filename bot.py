@@ -385,11 +385,11 @@ async def on_message(message):
             now = time.time()
 
             if voice_channel.id in channel_cooldowns:
-                if now - channel_cooldowns[voice_channel.id] < 1200:
+                if now - channel_cooldowns[voice_channel.id] < 300:
                     try:
                         await message.delete()
                         await message.author.send(
-                            "Ktoś z twojego kanału głosowego użył już roli Szukam do gry w ciągu ostatnich 20 minut."
+                            "Ktoś z twojego kanału głosowego użył już roli Szukam do gry w ciągu ostatnich 5 minut."
                         )
                     except Exception:
                         pass
