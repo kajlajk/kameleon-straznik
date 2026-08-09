@@ -403,15 +403,16 @@ async def on_message(message):
                 current_players = len(voice_channel.members)
                 max_players = voice_channel.user_limit
                 
-                # Formatowanie statusu lobby
+                # Formatowanie statusu lobby (np. "3 osób" przy braku limitu lub "3/10" przy kanale z limitem)
                 if max_players > 0:
-                    free_slots = max_players - current_players
-                    if free_slots > 0:
-                        slots_text = f"🟢 **{current_players}/{max_players} graczy** *(Wolne miejsca: **{free_slots}**)*"
-                    else:
-                        slots_text = f"🔴 **{current_players}/{max_players} graczy** *(Lobby pełne!)*"
+                    slots_text = f"{current_players}/{max_players}"
                 else:
-                    slots_text = f"🟢 **{current_players} osób w lobby** *(Brak limitu)*"
+                    if current_players == 1:
+                        slots_text = "1 osoba"
+                    elif current_players in [2, 3, 4]:
+                        slots_text = f"{current_players} osoby"
+                    else:
+                        slots_text = f"{current_players} osób"
 
                 # Zaawansowane czyszczenie nazwy gry ze wszystkich wariantów nawiasów oraz fraz "PING" i "Szukam gry"
                 role_name_clean = role_to_ping.name
@@ -426,7 +427,7 @@ async def on_message(message):
                 
                 embed.add_field(name="📌 Rola", value=role_to_ping.mention, inline=True)
                 embed.add_field(name="🎧 Kanał głosowy", value=f"**{voice_channel.name}**", inline=True)
-                embed.add_field(name="📊 Status lobby", value=slots_text, inline=False)
+                embed.add_field(name="👥 Status lobby", value=slots_text, inline=False)
                 
                 if message.author.display_avatar:
                     embed.set_thumbnail(url=message.author.display_avatar.url)
