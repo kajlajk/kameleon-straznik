@@ -26,7 +26,6 @@ SZUKAM_ROLES_IDS = {
     1535659233813602324,
     1535681013932630097,
     1535681013932630097
-    
 }
 
 STARTIT_BOT_ID = 572906387382861835
@@ -268,7 +267,7 @@ async def on_message(message):
 
         except Exception as e:
             print(f"Błąd odpowiedzi: {e}")   
- 
+
     if message.content.lower() == "/spokojnie":
         if (
             message.author.id == OWNER_ID
@@ -413,17 +412,15 @@ async def on_message(message):
                     slots_text = f"`👥 {current_players}` osób (Brak limitu)"
 
                 embed = discord.Embed(
-                    title="🎮 WEZWANIE DO GRY! 🎮",
-                    description=(
-                        f"**Pora zebrać ekipę!**\n"
-                        f"{message.author.mention} szuka chętnych do wspólnej zabawy.\n\n"
-                        f"**Szczegóły zgłoszenia:**\n"
-                        f"> 🎯 **Gra:** {role_to_ping.mention}\n"
-                        f"> 🔊 **Kanał:** `{voice_channel.name}`\n"
-                        f"> 👥 **Status:** {slots_text}\n"
-                    ),
+                    title="🎮 Szukamy graczy do wspólnej rozgrywki!",
+                    description=f"Użytkownik {message.author.mention} zaprasza do gry.",
                     color=role_to_ping.color if role_to_ping.color.value != 0 else discord.Color.purple()
                 )
+                
+                # Używamy czytelnych pół klasycznych (add_field)
+                embed.add_field(name="📌 Oznaczona rola", value=role_to_ping.mention, inline=True)
+                embed.add_field(name="🔊 Kanał głosowy", value=f"**{voice_channel.name}**", inline=True)
+                embed.add_field(name="👥 Status lobby", value=slots_text, inline=False)
                 
                 # Awatar gracza po prawej stronie jako miniaturka
                 if message.author.display_avatar:
