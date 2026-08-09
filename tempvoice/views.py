@@ -43,7 +43,6 @@ class TempVoicePanel(discord.ui.View):
         
         return True
 
-    # --- WIERSZ 0: Ustawienia Podstawowe ---
     @discord.ui.button(
         label="Nazwa",
         emoji="📝",
@@ -92,7 +91,6 @@ class TempVoicePanel(discord.ui.View):
         await channel.set_permissions(interaction.guild.default_role, connect=None)
         await interaction.response.send_message("🔓 Kanał został odblokowany.", ephemeral=True)
 
-    # --- WIERSZ 1: Moderacja i Zarządzanie ---
     @discord.ui.button(
         label="Wyrzuć",
         emoji="👢",
