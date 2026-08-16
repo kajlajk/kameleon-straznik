@@ -143,6 +143,9 @@ async def on_ready():
     if not update_member_status.is_running():
         update_member_status.start()
 
+    if not bump_reminder.is_running():
+        bump_reminder.start()
+
 
 @bot.event
 async def on_message(message):
@@ -331,7 +334,8 @@ async def on_message(message):
 
         return
 
-    if len(message.mentions) > 3:
+    # Ograniczenie pingu (wyminięcie dla Właściciela)
+    if len(message.mentions) > 3 and message.author.id != OWNER_ID:
         try:
             await message.delete()
             await message.author.send(
@@ -573,6 +577,32 @@ async def update_member_status():
         
     except Exception as e:
         print(f"[BŁĄD MEMBER STATUS LOOP]: {e}")
+
+
+@tasks.loop(hours=3)
+async def bump_reminder():
+    """Wysyła co 3 godziny przypomnienie o /bump na kanale ogólnym."""
+    try:
+        await bot.wait_until_ready()
+        chat_channel = bot.get_channel(CHAT_CHANNEL)
+        
+        if chat_channel:
+            embed = discord.Embed(
+                title="🚀 Przypomnienie o podbijaniu serwera!",
+                description=(
+                    "Pamiętajcie o wsparciu naszego serwera! Podbij go wpisując komendę:\n\n"
+                    "👉 **`/bump`** od bota **Dzik** na kanale dla botów!"
+                ),
+                color=discord.Color.og_blurple()
+            )
+            embed.set_footer(text="KameleonBot • Przypomnienie co 3h", icon_url=bot.user.display_avatar.url)
+            embed.timestamp = datetime.now(timezone.utc)
+
+            await chat_channel.send(embed=embed)
+            print("[BUMP] Wysyłano przypomnienie o bumpie na kanał ogólny.")
+            
+    except Exception as e:
+        print(f"[BŁĄD BUMP LOOP]: {e}")
 
 
 async def main():
