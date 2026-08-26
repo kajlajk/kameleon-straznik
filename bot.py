@@ -11,11 +11,9 @@ from discord.ext import tasks
 TOKEN = os.getenv("TOKEN")
 
 OWNER_ID = 765301434350567426
-SZUKAM_CHANNEL = 1515570301172449362        # Kanał "Szukam do gry"
-SZUKAM_ZNAJOMYCH_CHANNEL = 1538598497132089485 # Kanał "Szukam znajomych"
-
-# PODMIEŃ TO NA ID ROLI, KTÓRĄ BOT MA PINGOWAĆ:
-ROLE_SZUKAM_DO_GRY_ID = 1515875177852833872
+SZUKAM_CHANNEL = 1515570301172449362        
+SZUKAM_ZNAJOMYCH_CHANNEL = 1538598497132089485 
+ROLE_SZUKAM_DO_GRY_ID = 1515875177852833872 # Domyślna rola, jeśli nikt nie zpingował konkretnej
 
 CHAT_CHANNEL = 1515567593694691413
 ADMIN_CHANNEL = 1515593063639285810
@@ -127,8 +125,6 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- KLASY INTERFEJSU DLA OGŁOSZEŃ ---
-
 class EditPostModal(discord.ui.Modal, title="Edycja ogłoszenia"):
     def __init__(self, target_message: discord.Message):
         super().__init__()
@@ -193,7 +189,7 @@ class PostView(discord.ui.View):
 @bot.event
 async def on_ready():
     print("BOT ONLINE TEST OK")
-    print("NOWA WERSJA BOTA")
+    print("NOWA WERSJA BOTA (AKTYWACJA PINGIEM ROLI)")
     print(f"Zalogowano jako {bot.user}")
 
     if not check_timeouts.is_running():
@@ -215,31 +211,17 @@ async def on_message(message):
             try:
                 if "zdobył(a)" in message.content:
                     tekst = message.content.split("siłę!")[1].strip()
-
                     nick = tekst.split("zdobył(a)")[0].strip()
                     level = tekst.split("zdobył(a)")[1].split("poziom")[0].strip()
 
-                    print(f"[LEVEL] Nick z wiadomości: {nick}")
-                    print(f"[LEVEL] Poziom: {level}")
-
                     member = discord.utils.find(
-                        lambda m:
-                        m.display_name.lower() == nick.lower()
-                        or m.name.lower() == nick.lower(),
+                        lambda m: m.display_name.lower() == nick.lower() or m.name.lower() == nick.lower(),
                         message.guild.members
                     )
-
-                    if member is None:
-                        print("[LEVEL] Nie znaleziono użytkownika.")
-                        return
-
-                    print(f"[LEVEL] Znaleziono: {member}")
+                    if member is None: return
 
                     role = message.guild.get_role(LEVEL_ROLE_ID)
-
-                    if role not in member.roles:
-                        print("[LEVEL] Użytkownik nie ma roli Levele.")
-                        return
+                    if role not in member.roles: return
 
                     level_int = int(level)
 
@@ -253,29 +235,25 @@ async def on_message(message):
                             tekst = random.choice(rare_level_messages)
                         else:
                             tekst = random.choice(level_messages)
-
-                        await message.channel.send(
-                            tekst.format(
-                                mention=member.mention,
-                                level=level_int
-                            )
-                        )
-
+                        await message.channel.send(tekst.format(mention=member.mention, level=level_int))
             except Exception as e:
                 print(f"[LEVEL] Błąd: {e}")
-
         return
 
-    # --- OBSŁUGA KANAŁÓW: SZUKAM DO GRY & SZUKAM ZNAJOMYCH ---
+    # --- OBSŁUGA KANAŁÓW OGŁOSZEŃ ---
     if message.channel.id in (SZUKAM_CHANNEL, SZUKAM_ZNAJOMYCH_CHANNEL):
         content_lower = message.content.lower()
+        
+        # Warunek: wiadomość ma oznaczoną jakąś rolę LUB zawiera hashtag #szukam do gry
+        has_role_ping = len(message.role_mentions) > 0
+        has_hashtag = "#szukam do gry" in content_lower or "#szukamdogry" in content_lower
 
-        if "#szukam do gry" in content_lower or "#szukamdogry" in content_lower:
+        if has_role_ping or has_hashtag:
             now = time.time()
             user_id = message.author.id
             cooldown_key = (user_id, message.channel.id)
             
-            # Cooldown 1 godzina (3600s)
+            # Cooldown 1 godzina
             if cooldown_key in post_cooldowns:
                 elapsed = now - post_cooldowns[cooldown_key]
                 if elapsed < 3600:
@@ -284,7 +262,7 @@ async def on_message(message):
                         await message.delete()
                         await message.author.send(
                             f"⏳ Na kanale {message.channel.mention} możesz dodawać nowe ogłoszenie raz na **1 godzinę**.\n"
-                            f"Musisz poczekać jeszcze około **{remaining_minutes} min**.\n"
+                            f"Musisz poczekać jeszcze okoł **{remaining_minutes} min**.\n"
                             "💡 *Pamiętaj, że istniejące ogłoszenie możesz edytować z poziomu wiadomości od bota!*"
                         )
                     except discord.Forbidden:
@@ -292,20 +270,27 @@ async def on_message(message):
                     return
 
             try:
-                # Oczyszczanie wiadomości z komendy
-                clean_content = re.sub(r'#szukam\s*do\s*gry', '', message.content, flags=re.IGNORECASE).strip()
+                author = message.author
+                
+                # Ustalenie, która rola została spingowana (bierze pierwszą zpingowaną rolę z wiadomości)
+                if message.role_mentions:
+                    target_role = message.role_mentions[0]
+                    ping_text = f"{target_role.mention} {author.mention}"
+                else:
+                    ping_text = f"<@&{ROLE_SZUKAM_DO_GRY_ID}> {author.mention}"
+
+                # Wyczyszczenie wiadomości z hashtagu jeśli był użyty
+                clean_content = re.sub(r'#szukam\s*do\s*gry|#szukamdogry', '', message.content, flags=re.IGNORECASE).strip()
                 if not clean_content:
                     clean_content = message.content
 
-                author = message.author
                 await message.delete()
                 post_cooldowns[cooldown_key] = now
 
-                # Tworzenie pingu dla roli i gracza
                 if message.channel.id == SZUKAM_CHANNEL:
                     embed_color = discord.Color.purple()
                     embed_title = f"🎮 Ogłoszenie gracza: {author.display_name}"
-                    ping_content = f"<@&{ROLE_SZUKAM_DO_GRY_ID}> {author.mention}"
+                    ping_content = ping_text
                 else:
                     embed_color = discord.Color.teal()
                     embed_title = f"✨ Wizytówka: {author.display_name}"
@@ -323,7 +308,7 @@ async def on_message(message):
                 embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
                 embed.set_footer(text=f"ID Użytkownika: {author.id}")
 
-                # Wysyłanie panelu z pingiem roli
+                # Wysyłanie Embedu z wyciągniętym pingiem
                 sent_message = await message.channel.send(content=ping_content, embed=embed)
 
                 dm_embed = discord.Embed(
@@ -341,28 +326,23 @@ async def on_message(message):
                 try:
                     await author.send(embed=dm_embed, view=view)
                 except discord.Forbidden:
-                    pass
+                    print(f"Brak możliwości wysłania DM do {author.display_name} (Zablokowane DMy).")
 
             except Exception as e:
                 print(f"[BŁĄD OGŁOSZEŃ]: {e}")
             return
 
-    # Przypomnienie o bumpie po aktywności
     if message.channel.id == CHAT_CHANNEL and bump_pending:
         try:
             embed = discord.Embed(
                 title="🚀 Przypomnienie o podbijaniu serwera!",
-                description=(
-                    "Pamiętajcie o wsparciu naszego serwera! Podbij go wpisując komendę:\n\n"
-                    "👉 **`/bump`** od bota **Dzik** na kanale dla botów!"
-                ),
+                description="Pamiętajcie o wsparciu naszego serwera! Podbij go wpisując komendę:\n\n👉 **`/bump`** od bota **Dzik** na kanale dla botów!",
                 color=discord.Color.og_blurple()
             )
             embed.set_footer(text="KameleonBot • Przypomnienie co 3h", icon_url=bot.user.display_avatar.url)
             embed.timestamp = datetime.now(timezone.utc)
 
             await message.channel.send(embed=embed)
-            print("[BUMP] Wysłano przypomnienie o bumpie po aktywności użytkownika.")
             
             bump_pending = False
             last_bump_time = time.time()
@@ -388,7 +368,7 @@ async def on_message(message):
                 await message.add_reaction("👍")
                 await message.add_reaction("😂")
                 await message.add_reaction("❤️")
-            except (discord.Forbidden, discord.HTTPException):
+            except:
                 pass
 
     global last_random_message
@@ -397,112 +377,46 @@ async def on_message(message):
 
     now = time.time()
 
-    if (
-        message.channel.id == CHAT_CHANNEL
-        and now - last_random_message > 3600
-        and random.randint(1, 100) <= 10
-    ):
-        bot_msg = await message.channel.send(
-            random.choice(random_texts)
-        )
-
+    if (message.channel.id == CHAT_CHANNEL and now - last_random_message > 3600 and random.randint(1, 100) <= 10):
+        bot_msg = await message.channel.send(random.choice(random_texts))
         last_bot_message_id = bot_msg.id
         answered_users.clear()
         last_random_message = now
 
     if message.reference and message.channel.id == CHAT_CHANNEL:   
         try:
-            replied_message = await message.channel.fetch_message(
-                message.reference.message_id
-            )
-
+            replied_message = await message.channel.fetch_message(message.reference.message_id)
             if replied_message.author.id == bot.user.id:
                 if message.author.id not in answered_users:
                     response = random.choice(reply_texts)
-
                     if len(reply_texts) > 1:
-                        while (
-                            last_reply_text is not None
-                            and response == last_reply_text
-                        ):
+                        while (last_reply_text is not None and response == last_reply_text):
                             response = random.choice(reply_texts)
-
                     await message.reply(response)
-
                     last_reply_text = response
                     answered_users.add(message.author.id)
-
         except Exception as e:
             print(f"Błąd odpowiedzi: {e}")   
 
     if message.content.lower() == "/spokojnie":
-        if (
-            message.author.id == OWNER_ID
-            and message.channel.id == ADMIN_CHANNEL
-        ):
+        if (message.author.id == OWNER_ID and message.channel.id == ADMIN_CHANNEL):
             channel = bot.get_channel(CHAT_CHANNEL)
-
             teksty = [
                 "🤖 Materiał dowodowy sam się nie zbierze.",
                 "🤖 Proszę kontynuować, raport nie napisze się sam.",
-                "🤖 Administracja z zainteresowaniem śledzi rozwój wydarzeń.",
-                "🤖 Nie przerywajcie, fabuła się zagęszcza.",
-                "🤖 Spokojnie, wszystko trafia do akt.",
-                "🤖 To będzie ciekawy wpis w raporcie.",
-                "🤖 Obserwuję i udaję, że mnie tu nie ma.",
-                "🤖 Interesujący obrót wydarzeń.",
-                "🤖 Ktoś tu gotuje i zaczyna pachnieć dramatem.",
-                "🤖 Raport sytuacyjny został zaktualizowany.",
-                "🤖 Poproszę streszczenie dla spóźnionych.",
-                "🤖 Nie mam kontekstu, ale brzmi poważnie.",
-                "🤖 Ten czat ma potencjał.",
-                "🤖 Zdecydowanie jedna z rozmów wszech czasów.",
-                "🤖 Kulturalnie przypominam, że czytam.",
-                "🤖 Właśnie wszedłem. Co się tu dzieje?",
-                "🤖 Dokumentacja sama się nie uzupełni.",
-                "🤖 Obywatelu, kontynuuj wypowiedź.",
-                "🤖 To może być ważne dla śledztwa.",
-                "🤖 Zbieram materiał do raportu.",
-                "🤖 Ciekawa ta wasza rozmowa.",
-                "🤖 Notuję. Bardzo skrupulatnie notuję.",
-                "🤖 Emocje wykryte. Analizuję sytuację.",
-                "🤖 To będzie długi raport.",
-                "🤖 System monitoringu czatu działa prawidłowo.",
-                "🤖 Administratorzy siedzą z popcornem. 🍿",
-                "🤖 Speedrun do ciekawa wpisu w logach.",
-                "🤖 Wykryto nietypową aktywność użytkowników.",
-                "🤖 Kontynuujcie, jestem zaintrygowany.",
-                "🤖 Kameleon nie ocenia. Kameleon obserwuje. 🦎",
-                "🤖 Wykryto podwyższone tętno sekcji tekstowej. Monitoruję.",
-                "🤖 Analiza nastrojów... zalecane ochłodzenie emocji.",
-                "🤖 Czytanie tego wątku wymaga ode mnie restartu procesora.",
-                "🤖 Uwaga: Logi systemowe zapełniają się w zastraszającym tempie.",
-                "🤖 Wpis w kartotece: 'Brak panowania nad klawiaturą'.",
-                "🤖 Ciekawy dobór słów. Moderatorzy na pewno to docenią.",
-                "🤖 Spokojnie, po prostu robię zrzuty ekranu.",
-                "🤖 Ktoś tu bardzo chce przetestować system automatycznych kar.",
-                "🤖 Nie przeszkadzajcie sobie, algorytm bacznie notuje każde słowo.",
-                "🤖 Oho, widzę, że regulamin znowu stał się tylko sugestią.",
-                "🤖 Sprawa jest rozwojowa. Czekam na dalsze zeznania.",
-                "🤖 Dział skarg i zażaleń bota jest aktualnie nieczynny.",
-                "🤖 Temperatura dyskusji przekracza normy fabryczne.",
-                "🤖 Człowieku, nie denerwuj maszyny.",
-                "🤖 Zgłoszenie przyjęte. Trwa przetwarzanie winowajców..."
+                "🤖 Administracja z zainteresowaniem śledzi rozwój wydarzeń."
             ]
             try:
                 await channel.send(random.choice(teksty))
                 await message.delete()
             except Exception as e:
                 print(f"Błąd komendy /spokojnie: {e}")
-
         return
 
     if len(message.mentions) > 3 and message.author.id != OWNER_ID:
         try:
             await message.delete()
-            await message.author.send(
-                "Możesz oznaczyć maksymalnie 3 osoby w jednej wiadomości."
-            )
+            await message.author.send("Możesz oznaczyć maksymalnie 3 osoby w jednej wiadomości.")
         except Exception:
             pass
         return
@@ -515,14 +429,10 @@ async def check_timeouts():
     global last_timeout_entry
 
     try:
-        if not bot.guilds:
-            return
-
+        if not bot.guilds: return
         guild = bot.guilds[0]
         log_channel = bot.get_channel(LOG_CHANNEL_ID)
-
-        if log_channel is None:
-            return
+        if log_channel is None: return
 
         if last_timeout_entry is None:
             async for entry in guild.audit_logs(limit=1, action=discord.AuditLogAction.member_update):
@@ -531,21 +441,16 @@ async def check_timeouts():
 
         actions = []
         async for entry in guild.audit_logs(limit=5, action=discord.AuditLogAction.member_update):
-            if entry.id == last_timeout_entry:
-                break
+            if entry.id == last_timeout_entry: break
             actions.append(entry)
 
-        if not actions:
-            return
-
+        if not actions: return
         last_timeout_entry = actions[0].id
 
         for entry in reversed(actions):
             before_timeout = entry.before.timed_out_until
             after_timeout = entry.after.timed_out_until
-
-            if before_timeout == after_timeout:
-                continue
+            if before_timeout == after_timeout: continue
 
             moderator = entry.user
             user = entry.target
@@ -553,22 +458,14 @@ async def check_timeouts():
             avatar_url = user.display_avatar.url if user.display_avatar else None
 
             if after_timeout is None:
-                embed = discord.Embed(
-                    title="🔓 Zdjęto timeout",
-                    color=discord.Color.green()
-                )
-
-                if avatar_url:
-                    embed.set_author(name=str(user), icon_url=avatar_url)
-
+                embed = discord.Embed(title="🔓 Zdjęto timeout", color=discord.Color.green())
+                if avatar_url: embed.set_author(name=str(user), icon_url=avatar_url)
                 embed.add_field(name="👤 Użytkownik", value=user.mention, inline=False)
                 embed.add_field(name="🛡️ Moderator", value=moderator.mention, inline=False)
                 embed.add_field(name="📝 Powód", value=reason, inline=False)
                 embed.timestamp = datetime.now(timezone.utc)
                 embed.set_footer(text=f"ID użytkownik: {user.id}")
-
                 await log_channel.send(embed=embed)
-
             else:
                 timestamp = int(after_timeout.timestamp())
                 remaining = after_timeout - datetime.now(timezone.utc)
@@ -581,14 +478,8 @@ async def check_timeouts():
                 elif seconds <= 86410: duration = "1 dzień"
                 else: duration = "1 tydzień"
             
-                embed = discord.Embed(
-                    title="🔇 Nadano timeout",
-                    color=discord.Color.orange()
-                )
-
-                if avatar_url:
-                    embed.set_author(name=str(user), icon_url=avatar_url)
-
+                embed = discord.Embed(title="🔇 Nadano timeout", color=discord.Color.orange())
+                if avatar_url: embed.set_author(name=str(user), icon_url=avatar_url)
                 embed.add_field(name="👤 Użytkownik", value=user.mention, inline=False)
                 embed.add_field(name="🛡️ Pomocnik", value=moderator.mention, inline=False)
                 embed.add_field(name="⏳ Czas", value=duration, inline=False)
@@ -596,9 +487,7 @@ async def check_timeouts():
                 embed.add_field(name="📝 Powód", value=reason, inline=False)
                 embed.timestamp = datetime.now(timezone.utc)
                 embed.set_footer(text=f"ID użytkownika: {user.id}")
-
                 await log_channel.send(embed=embed)
-
     except Exception as e:
         print(f"[BŁĄD TIMEOUT LOOP]: {e}")
 
@@ -606,21 +495,13 @@ async def check_timeouts():
 @tasks.loop(minutes=10)
 async def update_member_status():
     try:
-        if not bot.guilds:
-            return
-            
+        if not bot.guilds: return
         guild = bot.guilds[0]
         member_count = guild.member_count
-        
-        activity = discord.CustomActivity(
-            name=f"🛡️ Pilnuje: {member_count} użytkowników 🦎"
-        )
-        
+        activity = discord.CustomActivity(name=f"🛡️ Pilnuje: {member_count} użytkowników 🦎")
         await bot.change_presence(activity=activity)
-        print(f"[STATUS] Zaktualizowano liczbę członków serwera: {member_count}")
-        
     except Exception as e:
-        print(f"[BŁĄD MEMBER STATUS LOOP]: {e}")
+        pass
 
 
 @tasks.loop(minutes=1)
@@ -630,9 +511,8 @@ async def bump_timer_check():
         if not bump_pending:
             if time.time() - last_bump_time >= 10800:
                 bump_pending = True
-                print("[BUMP] Minęły 3 godziny. Oczekiwanie na aktywność użytkownika...")
     except Exception as e:
-        print(f"[BŁĄD BUMP TIMER LOOP]: {e}")
+        pass
 
 
 async def main():
