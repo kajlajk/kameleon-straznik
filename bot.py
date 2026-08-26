@@ -570,7 +570,8 @@ async def cycle_info_channel():
             "✨ Dodaj sobie Role!",
             "💚 Fajnie ze jestescie z nami",
             "💬 Miłego pisania na czacie!",
-            "🦎 Kameleon Krewetka Pozdrawia"
+            "🦎 Kajlajk Kameleon Pozdrawia"
+            "🚀 Przypomnienie o podbijaniu serwera!"
         ]
 
         if not hasattr(bot, "info_index"):
