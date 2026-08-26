@@ -134,31 +134,37 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia"):
 
         embed = self.target_message.embeds[0] if self.target_message.embeds else None
         
-        current_game = "Gry / Wspólnej zabawy"
         current_desc = ""
+        is_profile = False
 
         if embed:
-            if embed.title and "Szukamy graczy do" in embed.title:
+            if embed.title and "Wizytówka" in embed.title:
+                is_profile = True
+                current_game = "Wizytówka"
+            elif embed.title and "Szukamy graczy do" in embed.title:
                 current_game = embed.title.replace("🎮 Szukamy graczy do ", "").replace("!", "")
-            elif embed.title and "Wizytówka:" in embed.title:
-                current_game = "Szukam znajomych"
-            
+            else:
+                current_game = "Gry / Wspólnej zabawy"
+
             for field in embed.fields:
                 if field.name == "📝 Opis":
                     current_desc = field.value
                     break
 
-        self.game_name = discord.ui.TextInput(
-            label="Na co zapraszasz? (Nazwa gry/aktywności)",
-            style=discord.TextStyle.short,
-            default=current_game,
-            max_length=100,
-            required=True
-        )
-        self.add_item(self.game_name)
+        self.is_profile = is_profile
+
+        if not self.is_profile:
+            self.game_name = discord.ui.TextInput(
+                label="Na co zapraszasz? (Nazwa gry/aktywności)",
+                style=discord.TextStyle.short,
+                default=current_game,
+                max_length=100,
+                required=True
+            )
+            self.add_item(self.game_name)
 
         self.new_content = discord.ui.TextInput(
-            label="Szczegółowy opis ogłoszenia",
+            label="Opis wizytówki / ogłoszenia",
             style=discord.TextStyle.paragraph,
             default=current_desc,
             max_length=1000,
@@ -169,13 +175,11 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia"):
     async def on_submit(self, interaction: discord.Interaction):
         try:
             embed = self.target_message.embeds[0]
-            if "Wizytówka" in (embed.title or ""):
-                embed.title = f"✨ Wizytówka: {interaction.user.display_name} ({self.game_name.value})"
-            else:
+            if not self.is_profile:
                 embed.title = f"🎮 Szukamy graczy do {self.game_name.value}!"
             
             embed.timestamp = datetime.now(timezone.utc)
-            new_desc_value = self.new_content.value if self.new_content.value else "*Brak dodatkowego opisu.*"
+            new_desc_value = self.new_content.value if self.new_content.value else "*Brak opisu.*"
             
             description_updated = False
             for i, field in enumerate(embed.fields):
@@ -188,7 +192,7 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia"):
                 embed.add_field(name="📝 Opis", value=new_desc_value, inline=False)
 
             await self.target_message.edit(embed=embed)
-            await interaction.response.send_message("✅ Pomyślnie zaktualizowano ogłoszenie!", ephemeral=True)
+            await interaction.response.send_message("✅ Pomyślnie zaktualizowano!", ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f"❌ Błąd podczas edycji: {e}", ephemeral=True)
 
@@ -207,14 +211,14 @@ class AdvancedPostView(discord.ui.View):
     @discord.ui.button(label="✏️ Edytuj opis / grę", style=discord.ButtonStyle.secondary)
     async def edit_post(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.author_id:
-            return await interaction.response.send_message("❌ Tylko autor tego ogłoszenia może je edytować!", ephemeral=True)
+            return await interaction.response.send_message("❌ Tylko autor może to edytować!", ephemeral=True)
 
         await interaction.response.send_modal(EditAdvancedPostModal(interaction.message))
 
     @discord.ui.button(label="🗑️ Usuń", style=discord.ButtonStyle.danger)
     async def delete_post(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.author_id:
-            return await interaction.response.send_message("❌ Tylko autor tego ogłoszenia może je usunąć!", ephemeral=True)
+            return await interaction.response.send_message("❌ Tylko autor może to usunąć!", ephemeral=True)
 
         await interaction.message.delete()
 
@@ -273,7 +277,6 @@ async def on_message(message):
         has_hashtag = "#szukam do gry" in content_lower or "#szukamdogry" in content_lower
         is_znajomi_channel = message.channel.id == SZUKAM_ZNAJOMYCH_CHANNEL
 
-        # Przetwarzaj jeśli to szukam-znajomych LUB gdy jest ping/hashtag w szukam-gry
         if is_znajomi_channel or has_role_ping or has_hashtag:
             now = time.time()
             user_id = message.author.id
@@ -298,77 +301,84 @@ async def on_message(message):
                 author = message.author
                 target_role = message.role_mentions[0] if message.role_mentions else None
 
-                # Ustawienie ping_text
-                if target_role:
-                    ping_text = f"{target_role.mention} {author.mention}"
-                elif not is_znajomi_channel:
-                    default_role = message.guild.get_role(ROLE_SZUKAM_DO_GRY_ID)
-                    ping_text = f"{default_role.mention} {author.mention}" if default_role else author.mention
-                else:
-                    ping_text = author.mention
-
-                # Oczyszczanie treści
                 clean_content = re.sub(r'#szukam\s*do\s*gry|#szukamdogry', '', message.content, flags=re.IGNORECASE).strip()
                 if target_role:
                     clean_content = clean_content.replace(target_role.mention, '').strip()
 
                 if not clean_content:
-                    clean_content = "Siemka, szukam kogoś do pogrania!"
+                    clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzania czasu!"
 
                 await message.delete()
                 post_cooldowns[cooldown_key] = now
 
-                # Kanał głosowy
-                voice_state = author.voice
-                if voice_state and voice_state.channel:
-                    voice_channel_name = f"🎙️ {voice_state.channel.name}"
-                    user_limit = voice_state.channel.user_limit
-                    current_users = len(voice_state.channel.members)
-                    
-                    osoby_text = "osoba" if current_users == 1 else "osoby" if 2 <= current_users <= 4 else "osób"
-                    
-                    if user_limit > 0:
-                        lobby_status = f"{current_users}/{user_limit} {osoby_text}"
-                    else:
-                        lobby_status = f"{current_users} {osoby_text}"
-
-                    vc_url = f"https://discord.com/channels/{message.guild.id}/{voice_state.channel.id}"
-                else:
-                    voice_channel_name = "🎙️ Brak kanału"
-                    lobby_status = "Brak informacji"
-                    vc_url = None
-
-                # Wygląd Embedu dla obu kanałów
+                # --- KANAŁ 1: SZUKAM ZNAJOMYCH (CZYSTA WIZYTÓWKA) ---
                 if is_znajomi_channel:
-                    embed_title = f"✨ Wizytówka: {author.display_name}"
-                    embed_color = discord.Color.teal()
+                    ping_text = author.mention
+
+                    embed = discord.Embed(
+                        title=f"✨ Autor: {author.display_name}",
+                        description=f"{author.mention}",
+                        color=discord.Color.teal(),
+                        timestamp=datetime.now(timezone.utc)
+                    )
+
+                    embed.set_author(
+                        name=f"Wiadomość od {author.display_name}",
+                        icon_url=author.display_avatar.url if author.display_avatar else None
+                    )
+                    embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
+                    embed.add_field(name="📝 Opis", value=clean_content, inline=False)
+                    embed.set_footer(text="Kliknij przycisk poniżej, aby edytować wizytówkę!")
+
+                    view = AdvancedPostView(author_id=author.id)
+                    await message.channel.send(content=ping_text, embed=embed, view=view)
+
+                # --- KANAŁ 2: SZUKAM DO GRY (Z LOBBY I ROLAMI) ---
                 else:
+                    if target_role:
+                        ping_text = f"{target_role.mention} {author.mention}"
+                    else:
+                        default_role = message.guild.get_role(ROLE_SZUKAM_DO_GRY_ID)
+                        ping_text = f"{default_role.mention} {author.mention}" if default_role else author.mention
+
+                    voice_state = author.voice
+                    if voice_state and voice_state.channel:
+                        voice_channel_name = f"🎙️ {voice_state.channel.name}"
+                        user_limit = voice_state.channel.user_limit
+                        current_users = len(voice_state.channel.members)
+                        
+                        osoby_text = "osoba" if current_users == 1 else "osoby" if 2 <= current_users <= 4 else "osób"
+                        lobby_status = f"{current_users}/{user_limit} {osoby_text}" if user_limit > 0 else f"{current_users} {osoby_text}"
+                        vc_url = f"https://discord.com/channels/{message.guild.id}/{voice_state.channel.id}"
+                    else:
+                        voice_channel_name = "🎙️ Brak kanału"
+                        lobby_status = "Brak informacji"
+                        vc_url = None
+
                     game_title = target_role.name if target_role else "Gry"
-                    embed_title = f"🎮 Szukamy graczy do {game_title}!"
-                    embed_color = discord.Color.red()
 
-                embed = discord.Embed(
-                    title=embed_title,
-                    description=f"{author.mention} szuka graczy i zaprasza do wspólnej rozgrywki!",
-                    color=embed_color,
-                    timestamp=datetime.now(timezone.utc)
-                )
+                    embed = discord.Embed(
+                        title=f"🎮 Szukamy graczy do {game_title}!",
+                        description=f"{author.mention} szuka graczy i zaprasza do wspólnej rozgrywki!",
+                        color=discord.Color.red(),
+                        timestamp=datetime.now(timezone.utc)
+                    )
 
-                embed.set_author(
-                    name=f"Zaproszenie od {author.display_name}",
-                    icon_url=author.display_avatar.url if author.display_avatar else None
-                )
-                embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
+                    embed.set_author(
+                        name=f"Zaproszenie od {author.display_name}",
+                        icon_url=author.display_avatar.url if author.display_avatar else None
+                    )
+                    embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
 
-                embed.add_field(name="📝 Opis", value=clean_content, inline=False)
-                embed.add_field(name="📌 Rola", value=target_role.mention if target_role else "Brak", inline=True)
-                embed.add_field(name="Kanał głosowy", value=voice_channel_name, inline=True)
-                embed.add_field(name="👥 Status lobby", value=lobby_status, inline=False)
+                    embed.add_field(name="📝 Opis", value=clean_content, inline=False)
+                    embed.add_field(name="📌 Rola", value=target_role.mention if target_role else "Brak", inline=True)
+                    embed.add_field(name="Kanał głosowy", value=voice_channel_name, inline=True)
+                    embed.add_field(name="👥 Status lobby", value=lobby_status, inline=False)
 
-                embed.set_footer(text="Kliknij przycisk poniżej, aby dołączyć do kanału lub edytować ogłoszenie!")
+                    embed.set_footer(text="Kliknij przycisk poniżej, aby dołączyć do kanału lub edytować ogłoszenie!")
 
-                view = AdvancedPostView(author_id=author.id, voice_channel_url=vc_url)
-                await message.channel.send(content=ping_text, embed=embed, view=view)
+                    view = AdvancedPostView(author_id=author.id, voice_channel_url=vc_url)
+                    await message.channel.send(content=ping_text, embed=embed, view=view)
 
             except Exception as e:
                 print(f"[BŁĄD OGŁOSZEŃ]: {e}")
