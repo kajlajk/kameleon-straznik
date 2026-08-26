@@ -342,7 +342,7 @@ async def on_message(message):
                         game_title = "Gry"
 
                     if not clean_content:
-                        clean_content = "Zapro do wspólnej gry!"
+                        clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzenia czasu!"
 
                     voice_state = author.voice
                     if voice_state and voice_state.channel:
@@ -359,8 +359,8 @@ async def on_message(message):
                         vc_url = None
 
                     embed = discord.Embed(
-                        title=f"🎮 Szukamy graczy do {game_title}!",
-                        description=f"{author.mention} szuka osób i zaprasza na kanał",
+                        title=f"🎮 {game_title}!",
+                        description=f"{author.mention} szuka osób i zaprasza na kanał!",
                         color=discord.Color.red(),
                         timestamp=datetime.now(timezone.utc)
                     )
