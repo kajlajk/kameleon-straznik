@@ -11,33 +11,20 @@ from discord.ext import tasks
 TOKEN = os.getenv("TOKEN")
 
 OWNER_ID = 765301434350567426
-SZUKAM_CHANNEL = 1515570301172449362
+SZUKAM_CHANNEL = 1515570301172449362        # Kanał "Szukam do gry"
+SZUKAM_ZNAJOMYCH_CHANNEL = 1538598497132089485 # Kanał "Szukam znajomych"
+
 CHAT_CHANNEL = 1515567593694691413
 ADMIN_CHANNEL = 1515593063639285810
 SCREENY_CHANNEL = 1515570115515650068  
 LOG_CHANNEL_ID = 1521585275229442178
 
-# Ustawione ID kanału "szukam znajomych"
-SZUKAM_ZNAJOMYCH_CHANNEL = 1538598497132089485
-
-SZUKAM_ROLES_IDS = {
-    1515875177852833872,  
-    1523300055430332467,  
-    1523305698031698153,  
-    1523304847452143697,  
-    1523305849009999993,
-    1535659303715868712,
-    1535659233813602324,
-    1535681013932630097,
-    1535841911615524894,
-    1541129601265303753
-}
-
 STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
 
-channel_cooldowns = {}
-friends_post_cooldowns = {}  # Słownik do przechowywania cooldownu (1h) dla ogłoszeń
+# Słowniki do cooldownów ogłoszeń (1h) osobno dla obu kanałów
+post_cooldowns = {} 
+
 warnings = {}
 last_random_message = 0
 answered_users = set()
@@ -138,9 +125,9 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- KLASY INTERFEJSU DLA KANAŁU "SZUKAM ZNAJOMYCH" ---
+# --- KLASY INTERFEJSU DLA OGŁOSZEŃ ---
 
-class EditFriendsPostModal(discord.ui.Modal, title="Edycja Twojego ogłoszenia"):
+class EditPostModal(discord.ui.Modal, title="Edycja ogłoszenia"):
     def __init__(self, target_message: discord.Message):
         super().__init__()
         self.target_message = target_message
@@ -165,26 +152,26 @@ class EditFriendsPostModal(discord.ui.Modal, title="Edycja Twojego ogłoszenia")
             embed.timestamp = datetime.now(timezone.utc)
             
             await self.target_message.edit(embed=embed)
-            await interaction.response.send_message("✅ Pomyślnie zaktualizowano Twoje ogłoszenie na kanale!", ephemeral=True)
+            await interaction.response.send_message("✅ Pomyślnie zaktualizowano Twoje ogłoszenie!", ephemeral=True)
         except discord.NotFound:
-            await interaction.response.send_message("❌ Nie znaleziono oryginalnego ogłoszenia (mogło zostać usunięte).", ephemeral=True)
+            await interaction.response.send_message("❌ Nie znaleziono oryginalnego ogłoszenia.", ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f"❌ Wystąpił błąd podczas edycji: {e}", ephemeral=True)
 
-class FriendsPostView(discord.ui.View):
+class PostView(discord.ui.View):
     def __init__(self, post_message: discord.Message):
         super().__init__(timeout=None)
         self.post_message = post_message
 
     @discord.ui.button(label="✏️ Edytuj treść", style=discord.ButtonStyle.primary)
     async def edit_post(self, interaction: discord.Interaction, button: discord.ui.Button):
-        await interaction.response.send_modal(EditFriendsPostModal(self.post_message))
+        await interaction.response.send_modal(EditPostModal(self.post_message))
 
     @discord.ui.button(label="🗑️ Usuń ogłoszenie", style=discord.ButtonStyle.danger)
     async def delete_post(self, interaction: discord.Interaction, button: discord.ui.Button):
         try:
             await self.post_message.delete()
-            await interaction.response.send_message("🗑️ Twoje ogłoszenie zostało pomyślnie usunięte z kanału.", ephemeral=True)
+            await interaction.response.send_message("🗑️ Ogłoszenie zostało pomyślnie usunięte.", ephemeral=True)
             for child in self.children:
                 child.disabled = True
             await interaction.message.edit(view=self)
@@ -270,22 +257,23 @@ async def on_message(message):
 
         return
 
-    # --- OBSŁUGA KANAŁU SZUKAM ZNAJOMYCH Z LIMITU 1 MSG / 1H ---
-    if message.channel.id == SZUKAM_ZNAJOMYCH_CHANNEL:
+    # --- OBSŁUGA KANAŁÓW: SZUKAM DO GRY & SZUKAM ZNAJOMYCH ---
+    if message.channel.id in (SZUKAM_CHANNEL, SZUKAM_ZNAJOMYCH_CHANNEL):
         now = time.time()
         user_id = message.author.id
+        cooldown_key = (user_id, message.channel.id)
         
-        # Sprawdzanie cooldownu 1h (3600 sekund)
-        if user_id in friends_post_cooldowns:
-            elapsed = now - friends_post_cooldowns[user_id]
+        # Cooldown 1 godzina (3600s)
+        if cooldown_key in post_cooldowns:
+            elapsed = now - post_cooldowns[cooldown_key]
             if elapsed < 3600:
                 remaining_minutes = int((3600 - elapsed) // 60) + 1
                 try:
                     await message.delete()
                     await message.author.send(
-                        f"⏳ Ogłoszenie na kanale {message.channel.mention} możesz wysyłać raz na **1 godzinę**.\n"
-                        f"Musisz poczekać jeszcze około **{remaining_minutes} min** przed dodaniem nowego ogłoszenia.\n"
-                        "💡 *Pamiętaj, że możesz edytować swoje istniejące ogłoszenie bez ograniczeń czasowych za pomocą przycisków na PW!*"
+                        f"⏳ Na kanale {message.channel.mention} możesz dodawać nowe ogłoszenie raz na **1 godzinę**.\n"
+                        f"Musisz poczekać jeszcze około **{remaining_minutes} min**.\n"
+                        "💡 *Pamiętaj, że istniejące ogłoszenie możesz w każdej chwili edytować z poziomu wiadomości od bota!*"
                     )
                 except discord.Forbidden:
                     pass
@@ -295,20 +283,25 @@ async def on_message(message):
             user_content = message.content
             author = message.author
 
-            # Usunięcie wiadomości użytkownika
             await message.delete()
 
-            # Zapisanie czasu nowego ogłoszenia
-            friends_post_cooldowns[user_id] = now
+            post_cooldowns[cooldown_key] = now
 
-            # Tworzenie Embedu
+            # Dopasowanie koloru i tytułu w zależności od kanału
+            if message.channel.id == SZUKAM_CHANNEL:
+                embed_color = discord.Color.purple()
+                embed_title = f"🎮 Ogłoszenie gracza: {author.display_name}"
+            else:
+                embed_color = discord.Color.teal()
+                embed_title = f"✨ Wizytówka: {author.display_name}"
+
             embed = discord.Embed(
                 description=user_content,
-                color=discord.Color.teal(),
+                color=embed_color,
                 timestamp=datetime.now(timezone.utc)
             )
             embed.set_author(
-                name=f"Wizytówka: {author.display_name}",
+                name=embed_title,
                 icon_url=author.display_avatar.url if author.display_avatar else None
             )
             embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
@@ -316,18 +309,17 @@ async def on_message(message):
 
             sent_message = await message.channel.send(content=author.mention, embed=embed)
 
-            # Wiadomość na PW z przyciskami
             dm_embed = discord.Embed(
-                title="✨ Twoje ogłoszenie zostało opublikowane!",
+                title="🚀 Twoje ogłoszenie zostało opublikowane!",
                 description=(
                     f"Twoja treść trafiła na kanał {message.channel.mention}.\n\n"
-                    "Poniżej znajdziesz przyciski pozwalające w każdej chwili **edytować** treść lub **usunąć** ogłoszenie z serwera."
+                    "Użyj poniższych przycisków, aby **edytować** treść ogłoszenia lub je **usunąć**."
                 ),
                 color=discord.Color.green()
             )
             dm_embed.add_field(name="📝 Aktualna treść:", value=user_content[:1024], inline=False)
 
-            view = FriendsPostView(post_message=sent_message)
+            view = PostView(post_message=sent_message)
             
             try:
                 await author.send(embed=dm_embed, view=view)
@@ -335,7 +327,7 @@ async def on_message(message):
                 pass
 
         except Exception as e:
-            print(f"[BŁĄD SZUKAM ZNAJOMYCH]: {e}")
+            print(f"[BŁĄD OGŁOSZEŃ]: {e}")
         return
 
     # Przypomnienie o bumpie po aktywności
@@ -498,120 +490,6 @@ async def on_message(message):
             pass
         return
 
-    pinged_roles = [role for role in message.role_mentions if role.id in SZUKAM_ROLES_IDS]
-    
-    if pinged_roles:
-        if message.channel.id != SZUKAM_CHANNEL:
-            try:
-                await message.delete()
-                warnings[message.author.id] = warnings.get(message.author.id, 0) + 1
-        
-                if warnings[message.author.id] == 1:
-                    await message.author.send(
-                        f"{message.author.mention} Role z kategorii 'Szukam do gry' mogą być używane tylko na dedykowanym kanale Szukam do gry."
-                    )
-        
-                elif warnings[message.author.id] == 2:
-                    await message.author.timeout(
-                        timedelta(minutes=20),
-                        reason="Pingowanie roli Szukam do gry poza wyznaczonym kanałem"
-                    )
-        
-                elif warnings[message.author.id] >= 3:
-                    await message.author.timeout(
-                        timedelta(hours=1),
-                        reason="Wielokrotne pingowanie roli Szukam do gry poza wyznaczonym kanałem"
-                    )
-            except Exception as e:
-                print(f"Błąd moderacji pingu roli: {e}")
-        
-            return
-
-        if message.channel.id == SZUKAM_CHANNEL:
-            if not message.author.voice:
-                try:
-                    await message.delete()
-                    await message.author.send(
-                        "Aby użyć roli Szukam do gry, musisz przebywać na kanale głosowym."
-                    )
-                except Exception:
-                    pass
-                return
-
-            voice_channel = message.author.voice.channel
-            now = time.time()
-
-            if voice_channel.id in channel_cooldowns:
-                if now - channel_cooldowns[voice_channel.id] < 300:
-                    try:
-                        await message.delete()
-                        await message.author.send(
-                            "Ktoś z twojego kanału głosowego użył już roli Szukam do gry w ciągu ostatnich 5 minut."
-                        )
-                    except Exception:
-                        pass
-                    return
-
-            channel_cooldowns[voice_channel.id] = now        
-            
-            try:
-                role_to_ping = pinged_roles[0] 
-                
-                current_players = len(voice_channel.members)
-                max_players = voice_channel.user_limit
-                
-                if max_players > 0:
-                    slots_text = f"{current_players}/{max_players}"
-                else:
-                    if current_players == 1:
-                        slots_text = "1 osoba"
-                    elif current_players in [2, 3, 4]:
-                        slots_text = f"{current_players} osoby"
-                    else:
-                        slots_text = f"{current_players} osób"
-
-                role_name_clean = role_to_ping.name
-                role_name_clean = re.sub(r'szukam\s+gry\s*', '', role_name_clean, flags=re.IGNORECASE)
-                role_name_clean = re.sub(r'[\(\<\《\[\{].*?PING.*?[\)\>\》\]\}]', '', role_name_clean, flags=re.IGNORECASE).strip()
-
-                embed = discord.Embed(
-                    title=f"🎮 Szukamy graczy do {role_name_clean}!",
-                    description=f"{message.author.mention} szuka graczy i zaprasza do wspólnej rozgrywki!",
-                    color=role_to_ping.color if role_to_ping.color.value != 0 else discord.Color.purple()
-                )
-                
-                embed.add_field(name="📌 Rola", value=role_to_ping.mention, inline=True)
-                embed.add_field(name="🎧 Kanał głosowy", value=f"**{voice_channel.name}**", inline=True)
-                embed.add_field(name="👥 Status lobby", value=slots_text, inline=False)
-                
-                if message.author.display_avatar:
-                    embed.set_thumbnail(url=message.author.display_avatar.url)
-
-                embed.set_author(
-                    name=f"Zaproszenie od {message.author.display_name}", 
-                    icon_url=message.author.display_avatar.url if message.author.display_avatar else None
-                )
-                
-                embed.set_footer(text="Kliknij przycisk poniżej, aby dołączyć do kanału!")
-                embed.timestamp = datetime.now(timezone.utc)
-
-                voice_url = f"https://discord.com/channels/{message.guild.id}/{voice_channel.id}"
-                view = discord.ui.View()
-                view.add_item(discord.ui.Button(label="🔊 Dołącz do kanału głosowego", url=voice_url, style=discord.ButtonStyle.link))
-
-                try:
-                    await message.delete()
-                except Exception:
-                    pass
-                
-                await asyncio.sleep(0.3)
-                
-                await message.channel.send(content=role_to_ping.mention, embed=embed, view=view)
-                return 
-
-            except Exception as e:
-                print(f"[BŁĄD GENEROWANIA EMBEDA GRY]: {e}")
-            
     await bot.process_commands(message)
 
 
