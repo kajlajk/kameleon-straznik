@@ -17,6 +17,9 @@ ADMIN_CHANNEL = 1515593063639285810
 SCREENY_CHANNEL = 1515570115515650068  
 LOG_CHANNEL_ID = 1521585275229442178
 
+# --- TUTAJ WPISZ ID NOWEGO KANAŁU "SZUKAM ZNAJOMYCH" ---
+SZUKAM_ZNAJOMYCH_CHANNEL = 1538598497132089485  
+
 SZUKAM_ROLES_IDS = {
     1515875177852833872,  
     1523300055430332467,  
@@ -26,7 +29,8 @@ SZUKAM_ROLES_IDS = {
     1535659303715868712,
     1535659233813602324,
     1535681013932630097,
-    1535841911615524894
+    1535841911615524894,
+    1541129601265303753
 }
 
 STARTIT_BOT_ID = 572906387382861835
@@ -38,6 +42,9 @@ last_random_message = 0
 answered_users = set()
 last_reply_text = None
 last_timeout_entry = None
+
+bump_pending = False
+last_bump_time = time.time()
 
 level_messages = [
     "🎉 Gratulacje {mention} za zdobycie **{level} poziomu!** 🦎",
@@ -130,6 +137,63 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
+# --- KLASY INTERFEJSU DLA KANAŁU "SZUKAM ZNAJOMYCH" ---
+
+class EditFriendsPostModal(discord.ui.Modal, title="Edycja Twojego ogłoszenia"):
+    def __init__(self, target_message: discord.Message):
+        super().__init__()
+        self.target_message = target_message
+        
+        # Próba wyciągnięcia dotychczasowego tekstu z embeda
+        current_text = ""
+        if self.target_message.embeds:
+            current_text = self.target_message.embeds[0].description or ""
+
+        self.new_content = discord.ui.TextInput(
+            label="Nowa treść ogłoszenia",
+            style=discord.TextStyle.paragraph,
+            default=current_text,
+            max_length=2000,
+            required=True
+        )
+        self.add_item(self.new_content)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        try:
+            embed = self.target_message.embeds[0]
+            embed.description = self.new_content.value
+            embed.timestamp = datetime.now(timezone.utc)
+            
+            await self.target_message.edit(embed=embed)
+            await interaction.response.send_message("✅ Pomyślnie zaktualizowano Twoje ogłoszenie na kanale!", ephemeral=True)
+        except discord.NotFound:
+            await interaction.response.send_message("❌ Nie znaleziono oryginalnego ogłoszenia (mogło zostać usunięte).", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Wystąpił błąd podczas edycji: {e}", ephemeral=True)
+
+class FriendsPostView(discord.ui.View):
+    def __init__(self, post_message: discord.Message):
+        super().__init__(timeout=None)  # Przycisk działa bez limitu czasu
+        self.post_message = post_message
+
+    @discord.ui.button(label="✏️ Edytuj treść", style=discord.ButtonStyle.primary)
+    async def edit_post(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await interaction.response.send_modal(EditFriendsPostModal(self.post_message))
+
+    @discord.ui.button(label="🗑️ Usuń ogłoszenie", style=discord.ButtonStyle.danger)
+    async def delete_post(self, interaction: discord.Interaction, button: discord.ui.Button):
+        try:
+            await self.post_message.delete()
+            await interaction.response.send_message("🗑️ Twoje ogłoszenie zostało pomyślnie usunięte z kanału.", ephemeral=True)
+            # Wyłączenie przycisków na PW po usunięciu
+            for child in self.children:
+                child.disabled = True
+            await interaction.message.edit(view=self)
+        except discord.NotFound:
+            await interaction.response.send_message("ℹ️ Ogłoszenie zostało już wcześniej usunięte.", ephemeral=True)
+        except Exception as e:
+            await interaction.response.send_message(f"❌ Nie udało się usunąć ogłoszenia: {e}", ephemeral=True)
+
 
 @bot.event
 async def on_ready():
@@ -143,12 +207,14 @@ async def on_ready():
     if not update_member_status.is_running():
         update_member_status.start()
 
-    if not bump_reminder.is_running():
-        bump_reminder.start()
+    if not bump_timer_check.is_running():
+        bump_timer_check.start()
 
 
 @bot.event
 async def on_message(message):
+    global bump_pending, last_bump_time
+
     if message.author.bot:
         if message.author.id == STARTIT_BOT_ID:
             try:
@@ -205,7 +271,76 @@ async def on_message(message):
 
         return
 
-        
+    # --- OBSŁUGA KANAŁU SZUKAM ZNAJOMYCH ---
+    if message.channel.id == SZUKAM_ZNAJOMYCH_CHANNEL:
+        try:
+            user_content = message.content
+            author = message.author
+
+            # 1. Usunięcie oryginalnej wiadomości
+            await message.delete()
+
+            # 2. Tworzenie estetycznego Embedu z ogłoszeniem
+            embed = discord.Embed(
+                description=user_content,
+                color=discord.Color.teal(),
+                timestamp=datetime.now(timezone.utc)
+            )
+            embed.set_author(
+                name=f"Wizytówka: {author.display_name}",
+                icon_url=author.display_avatar.url if author.display_avatar else None
+            )
+            embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
+            embed.set_footer(text=f"ID Użytkownika: {author.id}")
+
+            # 3. Wysyłanie Embedu na kanał
+            sent_message = await message.channel.send(content=author.mention, embed=embed)
+
+            # 4. Wysyłanie wiadomości prywatnej z przyciskami zarządzania
+            dm_embed = discord.Embed(
+                title="✨ Twoje ogłoszenie zostało opublikowane!",
+                description=(
+                    f"Twoja treść trafiła na kanał {message.channel.mention}.\n\n"
+                    "Poniżej znajdziesz przyciski pozwalające w każdej chwili **edytować** treść lub **usunąć** ogłoszenie z serwera."
+                ),
+                color=discord.Color.green()
+            )
+            dm_embed.add_field(name="📝 Aktualna treść:", value=user_content[:1024], inline=False)
+
+            view = FriendsPostView(post_message=sent_message)
+            
+            try:
+                await author.send(embed=dm_embed, view=view)
+            except discord.Forbidden:
+                # Jeśli użytkownik ma zablokowane DM od botów
+                pass
+
+        except Exception as e:
+            print(f"[BŁĄD SZUKAM ZNAJOMYCH]: {e}")
+        return
+
+    # Przypomnienie o bumpie po aktywności
+    if message.channel.id == CHAT_CHANNEL and bump_pending:
+        try:
+            embed = discord.Embed(
+                title="🚀 Przypomnienie o podbijaniu serwera!",
+                description=(
+                    "Pamiętajcie o wsparciu naszego serwera! Podbij go wpisując komendę:\n\n"
+                    "👉 **`/bump`** od bota **Dzik** na kanale dla botów!"
+                ),
+                color=discord.Color.og_blurple()
+            )
+            embed.set_footer(text="KameleonBot • Przypomnienie co 3h", icon_url=bot.user.display_avatar.url)
+            embed.timestamp = datetime.now(timezone.utc)
+
+            await message.channel.send(embed=embed)
+            print("[BUMP] Wysłano przypomnienie o bumpie po aktywności użytkownika.")
+            
+            bump_pending = False
+            last_bump_time = time.time()
+        except Exception as e:
+            print(f"[BŁĄD BUMP SEND]: {e}")
+
     if message.channel.id == SCREENY_CHANNEL:
         content = message.content.lower()
 
@@ -334,7 +469,6 @@ async def on_message(message):
 
         return
 
-    # Ograniczenie pingu (wyminięcie dla Właściciela)
     if len(message.mentions) > 3 and message.author.id != OWNER_ID:
         try:
             await message.delete()
@@ -407,7 +541,6 @@ async def on_message(message):
                 current_players = len(voice_channel.members)
                 max_players = voice_channel.user_limit
                 
-                # Formatowanie statusu lobby (np. "3 osób" przy braku limitu lub "3/10" przy kanale z limitem)
                 if max_players > 0:
                     slots_text = f"{current_players}/{max_players}"
                 else:
@@ -418,7 +551,6 @@ async def on_message(message):
                     else:
                         slots_text = f"{current_players} osób"
 
-                # Zaawansowane czyszczenie nazwy gry ze wszystkich wariantów nawiasów oraz fraz "PING" i "Szukam gry"
                 role_name_clean = role_to_ping.name
                 role_name_clean = re.sub(r'szukam\s+gry\s*', '', role_name_clean, flags=re.IGNORECASE)
                 role_name_clean = re.sub(r'[\(\<\《\[\{].*?PING.*?[\)\>\》\]\}]', '', role_name_clean, flags=re.IGNORECASE).strip()
@@ -444,7 +576,6 @@ async def on_message(message):
                 embed.set_footer(text="Kliknij przycisk poniżej, aby dołączyć do kanału!")
                 embed.timestamp = datetime.now(timezone.utc)
 
-                # Przycisk przenoszący bezpośrednio do kanału głosowego
                 voice_url = f"https://discord.com/channels/{message.guild.id}/{voice_channel.id}"
                 view = discord.ui.View()
                 view.add_item(discord.ui.Button(label="🔊 Dołącz do kanału głosowego", url=voice_url, style=discord.ButtonStyle.link))
@@ -560,7 +691,6 @@ async def check_timeouts():
 
 @tasks.loop(minutes=10)
 async def update_member_status():
-    """Pętla aktualizująca status bota na podstawie liczby osób na serwerze."""
     try:
         if not bot.guilds:
             return
@@ -579,30 +709,16 @@ async def update_member_status():
         print(f"[BŁĄD MEMBER STATUS LOOP]: {e}")
 
 
-@tasks.loop(hours=3)
-async def bump_reminder():
-    """Wysyła co 3 godziny przypomnienie o /bump na kanale ogólnym."""
+@tasks.loop(minutes=1)
+async def bump_timer_check():
+    global bump_pending, last_bump_time
     try:
-        await bot.wait_until_ready()
-        chat_channel = bot.get_channel(CHAT_CHANNEL)
-        
-        if chat_channel:
-            embed = discord.Embed(
-                title="🚀 Przypomnienie o podbijaniu serwera!",
-                description=(
-                    "Pamiętajcie o wsparciu naszego serwera! Podbij go wpisując komendę:\n\n"
-                    "👉 **`/bump`** od bota **Dzik** na kanale dla botów!"
-                ),
-                color=discord.Color.og_blurple()
-            )
-            embed.set_footer(text="KameleonBot • Przypomnienie co 3h", icon_url=bot.user.display_avatar.url)
-            embed.timestamp = datetime.now(timezone.utc)
-
-            await chat_channel.send(embed=embed)
-            print("[BUMP] Wysyłano przypomnienie o bumpie na kanał ogólny.")
-            
+        if not bump_pending:
+            if time.time() - last_bump_time >= 10800:
+                bump_pending = True
+                print("[BUMP] Minęły 3 godziny. Oczekiwanie na aktywność użytkownika...")
     except Exception as e:
-        print(f"[BŁĄD BUMP LOOP]: {e}")
+        print(f"[BŁĄD BUMP TIMER LOOP]: {e}")
 
 
 async def main():
