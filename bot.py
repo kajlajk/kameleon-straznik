@@ -568,12 +568,16 @@ async def cycle_info_channel():
 
         teksty = [
             "✨ Dodaj sobie Role!",
-            "💚 Fajnie ze jestescie z nami",
-            "💬 Miłego pisania na czacie!",
-            "🦎 Kajlajk Kameleon Pozdrawia"
-            "🚀 Przypomnienie o podbijaniu serwera!"
+            "💚 Fajnie że jesteście!",
+            "💬 Miłego pisania!",
+            "🦎 Kajlajk Pozdrawia!",
+            "🚀 Pamiętaj o /bump",
+            "🎮 Wpadaj na #szukam",
+            "📸 Zostaw screena!",
+            "🏆 Wbijaj poziomy!",
+            "☕ Usiądź i pogadaj",
+            "🛡️ Przeczytaj regulamin"
         ]
-
         if not hasattr(bot, "info_index"):
             bot.info_index = 0
 
