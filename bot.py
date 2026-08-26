@@ -125,7 +125,7 @@ intents.voice_states = True
 
 bot = commands.Bot(command_prefix="!", intents=intents)
 
-# --- KLASY INTERFEJSU DLA NOWEGO EMBEDU ---
+# --- KLASY INTERFEJSU OGŁOSZEŃ ---
 
 class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia"):
     def __init__(self, target_message: discord.Message):
@@ -134,14 +134,17 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia"):
 
         embed = self.target_message.embeds[0] if self.target_message.embeds else None
         
-        # Próba odzyskania dotychczasowego tytułu gry i opisu
         current_game = "Gry / Wspólnej zabawy"
         current_desc = ""
 
         if embed:
             if embed.title and "Szukamy graczy do" in embed.title:
                 current_game = embed.title.replace("🎮 Szukamy graczy do ", "").replace("!", "")
-            current_desc = embed.description or ""
+            
+            for field in embed.fields:
+                if field.name == "📝 Opis":
+                    current_desc = field.value
+                    break
 
         self.game_name = discord.ui.TextInput(
             label="Na co zapraszasz? (Nazwa gry/aktywności)",
@@ -165,8 +168,19 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia"):
         try:
             embed = self.target_message.embeds[0]
             embed.title = f"🎮 Szukamy graczy do {self.game_name.value}!"
-            embed.description = self.new_content.value if self.new_content.value else "*Brak dodatkowego opisu.*"
             embed.timestamp = datetime.now(timezone.utc)
+
+            new_desc_value = self.new_content.value if self.new_content.value else "*Brak dodatkowego opisu.*"
+            
+            description_updated = False
+            for i, field in enumerate(embed.fields):
+                if field.name == "📝 Opis":
+                    embed.set_field_at(i, name="📝 Opis", value=new_desc_value, inline=False)
+                    description_updated = True
+                    break
+            
+            if not description_updated:
+                embed.add_field(name="📝 Opis", value=new_desc_value, inline=False)
 
             await self.target_message.edit(embed=embed)
             await interaction.response.send_message("✅ Pomyślnie zaktualizowano ogłoszenie!", ephemeral=True)
@@ -178,7 +192,6 @@ class AdvancedPostView(discord.ui.View):
         super().__init__(timeout=None)
         self.author_id = author_id
 
-        # Jeśli gracz był na kanale głosowym, dodajemy przycisk przenoszący bezpośrednio do kanału
         if voice_channel_url:
             self.add_item(discord.ui.Button(
                 label="🔊 Dołącz do kanału głosowego",
@@ -204,7 +217,6 @@ class AdvancedPostView(discord.ui.View):
 @bot.event
 async def on_ready():
     print("BOT ONLINE TEST OK")
-    print("ZALOGOWANO I GOTOWO DO PRACY (NOWY EMBED)")
     print(f"Zalogowano jako {bot.user}")
 
     if not check_timeouts.is_running(): check_timeouts.start()
@@ -278,7 +290,6 @@ async def on_message(message):
             try:
                 author = message.author
 
-                # Pobieranie roli
                 if message.role_mentions:
                     target_role = message.role_mentions[0]
                 else:
@@ -286,7 +297,6 @@ async def on_message(message):
 
                 ping_text = f"{target_role.mention} {author.mention}" if target_role else author.mention
 
-                # Oczyszczanie treści
                 clean_content = re.sub(r'#szukam\s*do\s*gry|#szukamdogry', '', message.content, flags=re.IGNORECASE).strip()
                 if target_role:
                     clean_content = clean_content.replace(target_role.mention, '').strip()
@@ -297,31 +307,30 @@ async def on_message(message):
                 await message.delete()
                 post_cooldowns[cooldown_key] = now
 
-                # Pobieranie danych o kanale głosowym gracza
                 voice_state = author.voice
                 if voice_state and voice_state.channel:
-                    voice_channel_name = f"🔊 {voice_state.channel.name}"
+                    voice_channel_name = f"🎙️ {voice_state.channel.name}"
                     user_limit = voice_state.channel.user_limit
                     current_users = len(voice_state.channel.members)
                     
+                    osoby_text = "osoba" if current_users == 1 else "osoby" if 2 <= current_users <= 4 else "osób"
+                    
                     if user_limit > 0:
-                        lobby_status = f"👥 {current_users}/{user_limit} osób"
+                        lobby_status = f"{current_users}/{user_limit} {osoby_text}"
                     else:
-                        lobby_status = f"👥 {current_users} osób"
+                        lobby_status = f"{current_users} {osoby_text}"
 
                     vc_url = f"https://discord.com/channels/{message.guild.id}/{voice_state.channel.id}"
                 else:
-                    voice_channel_name = "❌ Nie połączono"
+                    voice_channel_name = "🎙️ Brak kanału"
                     lobby_status = "Brak informacji"
                     vc_url = None
 
-                # Tytuł gry z nazwy roli lub wpisu
                 game_title = target_role.name if target_role else "Gry"
 
-                # BUDOWANIE ROZBUDOWANEGO EMBEDU (Czerwony/Karminowy pasek)
                 embed = discord.Embed(
                     title=f"🎮 Szukamy graczy do {game_title}!",
-                    description=f"{author.mention} szuka graczy i zaprasza do wspólnej rozgrywki!\n\n**Opis:**\n{clean_content}",
+                    description=f"{author.mention} szuka graczy i zaprasza do wspólnej rozgrywki!",
                     color=discord.Color.red(),
                     timestamp=datetime.now(timezone.utc)
                 )
@@ -332,15 +341,14 @@ async def on_message(message):
                 )
                 embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
 
-                # Pola z informacjami
+                embed.add_field(name="📝 Opis", value=clean_content, inline=False)
                 embed.add_field(name="📌 Rola", value=target_role.mention if target_role else "Brak", inline=True)
-                embed.add_field(name="🎙️ Kanał głosowy", value=voice_channel_name, inline=True)
+                embed.add_field(name="Kanał głosowy", value=voice_channel_name, inline=True)
                 embed.add_field(name="👥 Status lobby", value=lobby_status, inline=False)
 
                 embed.set_footer(text="Kliknij przycisk poniżej, aby dołączyć do kanału lub edytować ogłoszenie!")
 
                 view = AdvancedPostView(author_id=author.id, voice_channel_url=vc_url)
-
                 await message.channel.send(content=ping_text, embed=embed, view=view)
 
             except Exception as e:
