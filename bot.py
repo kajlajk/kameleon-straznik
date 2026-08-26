@@ -19,6 +19,7 @@ CHAT_CHANNEL = 1515567593694691413
 ADMIN_CHANNEL = 1515593063639285810
 SCREENY_CHANNEL = 1515570115515650068  
 LOG_CHANNEL_ID = 1521585275229442178
+INFO_CHANNEL_ID = 1542093397593030747
 
 STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
@@ -229,6 +230,7 @@ async def on_ready():
     if not check_timeouts.is_running(): check_timeouts.start()
     if not update_member_status.is_running(): update_member_status.start()
     if not bump_timer_check.is_running(): bump_timer_check.start()
+    if not cycle_info_channel.is_running(): cycle_info_channel.start()
 
 
 @bot.event
@@ -334,7 +336,6 @@ async def on_message(message):
                 else:
                     if target_role:
                         ping_text = f"{target_role.mention} {author.mention}"
-                        # Oczyszczanie nazwy roli z przyrostków technicznych typu < PING >
                         game_title = re.sub(r'<[^>]+>', '', target_role.name).strip()
                     else:
                         default_role = message.guild.get_role(ROLE_SZUKAM_DO_GRY_ID)
@@ -342,7 +343,7 @@ async def on_message(message):
                         game_title = "Gry"
 
                     if not clean_content:
-                        clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzenia czasu!"
+                        clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzania czasu!"
 
                     voice_state = author.voice
                     if voice_state and voice_state.channel:
@@ -555,6 +556,35 @@ async def bump_timer_check():
                 bump_pending = True
     except Exception as e:
         pass
+
+
+@tasks.loop(minutes=8)
+async def cycle_info_channel():
+    try:
+        if not bot.guilds: return
+        guild = bot.guilds[0]
+        channel = guild.get_channel(INFO_CHANNEL_ID)
+        if not channel: return
+
+        teksty = [
+            "✨ Dodaj sobie Role!",
+            "💚 Fajnie ze jestescie z nami",
+            "💬 Miłego pisania na czacie!",
+            "🦎 Kameleon Krewetka Pozdrawia"
+        ]
+
+        if not hasattr(bot, "info_index"):
+            bot.info_index = 0
+
+        napis = teksty[bot.info_index]
+        
+        if channel.name != napis:
+            await channel.edit(name=napis)
+
+        bot.info_index = (bot.info_index + 1) % len(teksty)
+
+    except Exception as e:
+        print(f"[BŁĄD KANAŁU INFO]: {e}")
 
 
 async def main():
