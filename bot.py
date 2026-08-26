@@ -136,15 +136,13 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia"):
         
         current_desc = ""
         is_profile = False
+        current_game = "Gry / Wspólnej zabawy"
 
         if embed:
             if embed.title and "Wizytówka" in embed.title:
                 is_profile = True
-                current_game = "Wizytówka"
             elif embed.title and "Szukamy graczy do" in embed.title:
-                current_game = embed.title.replace("🎮 Szukamy graczy do ", "").replace("!", "")
-            else:
-                current_game = "Gry / Wspólnej zabawy"
+                current_game = embed.title.replace("🎮 Szukamy graczy do ", "").replace("!", "").strip()
 
             for field in embed.fields:
                 if field.name == "📝 Opis":
@@ -305,18 +303,17 @@ async def on_message(message):
                 if target_role:
                     clean_content = clean_content.replace(target_role.mention, '').strip()
 
-                if not clean_content:
-                    clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzania czasu!"
-
                 await message.delete()
                 post_cooldowns[cooldown_key] = now
 
                 # --- KANAŁ 1: SZUKAM ZNAJOMYCH (CZYSTA WIZYTÓWKA) ---
                 if is_znajomi_channel:
                     ping_text = author.mention
+                    if not clean_content:
+                        clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzania czasu!"
 
                     embed = discord.Embed(
-                        title=f"✨ Autor: {author.display_name}",
+                        title=f"✨ Wizytówka: {author.display_name}",
                         description=f"{author.mention}",
                         color=discord.Color.teal(),
                         timestamp=datetime.now(timezone.utc)
@@ -337,9 +334,15 @@ async def on_message(message):
                 else:
                     if target_role:
                         ping_text = f"{target_role.mention} {author.mention}"
+                        # Oczyszczanie nazwy roli z przyrostków technicznych typu < PING >
+                        game_title = re.sub(r'<[^>]+>', '', target_role.name).strip()
                     else:
                         default_role = message.guild.get_role(ROLE_SZUKAM_DO_GRY_ID)
                         ping_text = f"{default_role.mention} {author.mention}" if default_role else author.mention
+                        game_title = "Gry"
+
+                    if not clean_content:
+                        clean_content = "Zapro do wspólnej gry!"
 
                     voice_state = author.voice
                     if voice_state and voice_state.channel:
@@ -355,11 +358,9 @@ async def on_message(message):
                         lobby_status = "Brak informacji"
                         vc_url = None
 
-                    game_title = target_role.name if target_role else "Gry"
-
                     embed = discord.Embed(
                         title=f"🎮 Szukamy graczy do {game_title}!",
-                        description=f"{author.mention} szuka graczy i zaprasza do wspólnej rozgrywki!",
+                        description=f"{author.mention} szuka osób i zaprasza na kanał",
                         color=discord.Color.red(),
                         timestamp=datetime.now(timezone.utc)
                     )
