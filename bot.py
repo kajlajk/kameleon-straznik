@@ -17,8 +17,8 @@ ADMIN_CHANNEL = 1515593063639285810
 SCREENY_CHANNEL = 1515570115515650068  
 LOG_CHANNEL_ID = 1521585275229442178
 
-# --- TUTAJ WPISZ ID NOWEGO KANAŁU "SZUKAM ZNAJOMYCH" ---
-SZUKAM_ZNAJOMYCH_CHANNEL = 1538598497132089485  
+# Ustawione ID kanału "szukam znajomych"
+SZUKAM_ZNAJOMYCH_CHANNEL = 1538598497132089485
 
 SZUKAM_ROLES_IDS = {
     1515875177852833872,  
@@ -37,6 +37,7 @@ STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
 
 channel_cooldowns = {}
+friends_post_cooldowns = {}  # Słownik do przechowywania cooldownu (1h) dla ogłoszeń
 warnings = {}
 last_random_message = 0
 answered_users = set()
@@ -144,7 +145,6 @@ class EditFriendsPostModal(discord.ui.Modal, title="Edycja Twojego ogłoszenia")
         super().__init__()
         self.target_message = target_message
         
-        # Próba wyciągnięcia dotychczasowego tekstu z embeda
         current_text = ""
         if self.target_message.embeds:
             current_text = self.target_message.embeds[0].description or ""
@@ -173,7 +173,7 @@ class EditFriendsPostModal(discord.ui.Modal, title="Edycja Twojego ogłoszenia")
 
 class FriendsPostView(discord.ui.View):
     def __init__(self, post_message: discord.Message):
-        super().__init__(timeout=None)  # Przycisk działa bez limitu czasu
+        super().__init__(timeout=None)
         self.post_message = post_message
 
     @discord.ui.button(label="✏️ Edytuj treść", style=discord.ButtonStyle.primary)
@@ -185,7 +185,6 @@ class FriendsPostView(discord.ui.View):
         try:
             await self.post_message.delete()
             await interaction.response.send_message("🗑️ Twoje ogłoszenie zostało pomyślnie usunięte z kanału.", ephemeral=True)
-            # Wyłączenie przycisków na PW po usunięciu
             for child in self.children:
                 child.disabled = True
             await interaction.message.edit(view=self)
@@ -271,16 +270,38 @@ async def on_message(message):
 
         return
 
-    # --- OBSŁUGA KANAŁU SZUKAM ZNAJOMYCH ---
+    # --- OBSŁUGA KANAŁU SZUKAM ZNAJOMYCH Z LIMITU 1 MSG / 1H ---
     if message.channel.id == SZUKAM_ZNAJOMYCH_CHANNEL:
+        now = time.time()
+        user_id = message.author.id
+        
+        # Sprawdzanie cooldownu 1h (3600 sekund)
+        if user_id in friends_post_cooldowns:
+            elapsed = now - friends_post_cooldowns[user_id]
+            if elapsed < 3600:
+                remaining_minutes = int((3600 - elapsed) // 60) + 1
+                try:
+                    await message.delete()
+                    await message.author.send(
+                        f"⏳ Ogłoszenie na kanale {message.channel.mention} możesz wysyłać raz na **1 godzinę**.\n"
+                        f"Musisz poczekać jeszcze około **{remaining_minutes} min** przed dodaniem nowego ogłoszenia.\n"
+                        "💡 *Pamiętaj, że możesz edytować swoje istniejące ogłoszenie bez ograniczeń czasowych za pomocą przycisków na PW!*"
+                    )
+                except discord.Forbidden:
+                    pass
+                return
+
         try:
             user_content = message.content
             author = message.author
 
-            # 1. Usunięcie oryginalnej wiadomości
+            # Usunięcie wiadomości użytkownika
             await message.delete()
 
-            # 2. Tworzenie estetycznego Embedu z ogłoszeniem
+            # Zapisanie czasu nowego ogłoszenia
+            friends_post_cooldowns[user_id] = now
+
+            # Tworzenie Embedu
             embed = discord.Embed(
                 description=user_content,
                 color=discord.Color.teal(),
@@ -293,10 +314,9 @@ async def on_message(message):
             embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
             embed.set_footer(text=f"ID Użytkownika: {author.id}")
 
-            # 3. Wysyłanie Embedu na kanał
             sent_message = await message.channel.send(content=author.mention, embed=embed)
 
-            # 4. Wysyłanie wiadomości prywatnej z przyciskami zarządzania
+            # Wiadomość na PW z przyciskami
             dm_embed = discord.Embed(
                 title="✨ Twoje ogłoszenie zostało opublikowane!",
                 description=(
@@ -312,7 +332,6 @@ async def on_message(message):
             try:
                 await author.send(embed=dm_embed, view=view)
             except discord.Forbidden:
-                # Jeśli użytkownik ma zablokowane DM od botów
                 pass
 
         except Exception as e:
