@@ -140,6 +140,8 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia"):
         if embed:
             if embed.title and "Szukamy graczy do" in embed.title:
                 current_game = embed.title.replace("🎮 Szukamy graczy do ", "").replace("!", "")
+            elif embed.title and "Wizytówka:" in embed.title:
+                current_game = "Szukam znajomych"
             
             for field in embed.fields:
                 if field.name == "📝 Opis":
@@ -167,9 +169,12 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia"):
     async def on_submit(self, interaction: discord.Interaction):
         try:
             embed = self.target_message.embeds[0]
-            embed.title = f"🎮 Szukamy graczy do {self.game_name.value}!"
+            if "Wizytówka" in (embed.title or ""):
+                embed.title = f"✨ Wizytówka: {interaction.user.display_name} ({self.game_name.value})"
+            else:
+                embed.title = f"🎮 Szukamy graczy do {self.game_name.value}!"
+            
             embed.timestamp = datetime.now(timezone.utc)
-
             new_desc_value = self.new_content.value if self.new_content.value else "*Brak dodatkowego opisu.*"
             
             description_updated = False
@@ -266,8 +271,10 @@ async def on_message(message):
         
         has_role_ping = len(message.role_mentions) > 0
         has_hashtag = "#szukam do gry" in content_lower or "#szukamdogry" in content_lower
+        is_znajomi_channel = message.channel.id == SZUKAM_ZNAJOMYCH_CHANNEL
 
-        if has_role_ping or has_hashtag:
+        # Przetwarzaj jeśli to szukam-znajomych LUB gdy jest ping/hashtag w szukam-gry
+        if is_znajomi_channel or has_role_ping or has_hashtag:
             now = time.time()
             user_id = message.author.id
             cooldown_key = (user_id, message.channel.id)
@@ -289,24 +296,29 @@ async def on_message(message):
 
             try:
                 author = message.author
+                target_role = message.role_mentions[0] if message.role_mentions else None
 
-                if message.role_mentions:
-                    target_role = message.role_mentions[0]
+                # Ustawienie ping_text
+                if target_role:
+                    ping_text = f"{target_role.mention} {author.mention}"
+                elif not is_znajomi_channel:
+                    default_role = message.guild.get_role(ROLE_SZUKAM_DO_GRY_ID)
+                    ping_text = f"{default_role.mention} {author.mention}" if default_role else author.mention
                 else:
-                    target_role = message.guild.get_role(ROLE_SZUKAM_DO_GRY_ID)
+                    ping_text = author.mention
 
-                ping_text = f"{target_role.mention} {author.mention}" if target_role else author.mention
-
+                # Oczyszczanie treści
                 clean_content = re.sub(r'#szukam\s*do\s*gry|#szukamdogry', '', message.content, flags=re.IGNORECASE).strip()
                 if target_role:
                     clean_content = clean_content.replace(target_role.mention, '').strip()
 
                 if not clean_content:
-                    clean_content = "Zapro do wspólnej gry!"
+                    clean_content = "Siemka, szukam kogoś do pogrania!"
 
                 await message.delete()
                 post_cooldowns[cooldown_key] = now
 
+                # Kanał głosowy
                 voice_state = author.voice
                 if voice_state and voice_state.channel:
                     voice_channel_name = f"🎙️ {voice_state.channel.name}"
@@ -326,12 +338,19 @@ async def on_message(message):
                     lobby_status = "Brak informacji"
                     vc_url = None
 
-                game_title = target_role.name if target_role else "Gry"
+                # Wygląd Embedu dla obu kanałów
+                if is_znajomi_channel:
+                    embed_title = f"✨ Wizytówka: {author.display_name}"
+                    embed_color = discord.Color.teal()
+                else:
+                    game_title = target_role.name if target_role else "Gry"
+                    embed_title = f"🎮 Szukamy graczy do {game_title}!"
+                    embed_color = discord.Color.red()
 
                 embed = discord.Embed(
-                    title=f"🎮 Szukamy graczy do {game_title}!",
+                    title=embed_title,
                     description=f"{author.mention} szuka graczy i zaprasza do wspólnej rozgrywki!",
-                    color=discord.Color.red(),
+                    color=embed_color,
                     timestamp=datetime.now(timezone.utc)
                 )
 
