@@ -573,7 +573,7 @@ async def cycle_info_channel():
             "🦎 Kajlajk Pozdrawia!",
             "🚀 Pamiętaj o /bump",
             "🎮 Wpadaj na #szukam",
-            "📸 Zostaw screena!"
+            "📸 Zostaw screena!",
             "❤️ Zapraszaj Znajomych!",
             "🏆 Wbijaj poziomy!",
             "☕ Usiądź i pogadaj",
