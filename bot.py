@@ -305,11 +305,11 @@ async def on_message(message):
                 if target_role:
                     clean_content = clean_content.replace(target_role.mention, '').strip()
 
-                await message.delete()
-                post_cooldowns[cooldown_key] = now
-
-                # --- KANAŁ 1: SZUKAM ZNAJOMYCH (CZYSTA WIZYTÓWKA) ---
+                # --- KANAŁ 1: SZUKAM ZNAJOMYCH (CZYSTA WIZYTÓWKA - BRAK WYMOGU KANAŁU GŁOSOWEGO) ---
                 if is_znajomi_channel:
+                    await message.delete()
+                    post_cooldowns[cooldown_key] = now
+                    
                     ping_text = author.mention
                     if not clean_content:
                         clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzania czasu!"
@@ -332,8 +332,24 @@ async def on_message(message):
                     view = AdvancedPostView(author_id=author.id)
                     await message.channel.send(content=ping_text, embed=embed, view=view)
 
-                # --- KANAŁ 2: SZUKAM DO GRY (Z LOBBY I ROLAMI) ---
+                # --- KANAŁ 2: SZUKAM DO GRY (WYMAGANY KANAŁ GŁOSOWY) ---
                 else:
+                    voice_state = author.voice
+                    # Sprawdzenie czy użytkownik znajduje się na kanale głosowym
+                    if not voice_state or not voice_state.channel:
+                        await message.delete()
+                        try:
+                            await author.send(
+                                f"❌ **Ogłoszenie nie zostało opublikowane!**\n"
+                                f"Aby wysłać ogłoszenie na kanale {message.channel.mention}, musisz najpierw dołączyć do dowolnego kanału głosowego."
+                            )
+                        except discord.Forbidden:
+                            pass
+                        return
+
+                    await message.delete()
+                    post_cooldowns[cooldown_key] = now
+
                     if target_role:
                         ping_text = f"{target_role.mention} {author.mention}"
                         game_title = re.sub(r'<[^>]+>', '', target_role.name).strip()
@@ -345,19 +361,13 @@ async def on_message(message):
                     if not clean_content:
                         clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzania czasu!"
 
-                    voice_state = author.voice
-                    if voice_state and voice_state.channel:
-                        voice_channel_name = f"🎙️ {voice_state.channel.name}"
-                        user_limit = voice_state.channel.user_limit
-                        current_users = len(voice_state.channel.members)
-                        
-                        osoby_text = "osoba" if current_users == 1 else "osoby" if 2 <= current_users <= 4 else "osób"
-                        lobby_status = f"{current_users}/{user_limit} {osoby_text}" if user_limit > 0 else f"{current_users} {osoby_text}"
-                        vc_url = f"https://discord.com/channels/{message.guild.id}/{voice_state.channel.id}"
-                    else:
-                        voice_channel_name = "🎙️ Brak kanału"
-                        lobby_status = "Brak informacji"
-                        vc_url = None
+                    voice_channel_name = f"🎙️ {voice_state.channel.name}"
+                    user_limit = voice_state.channel.user_limit
+                    current_users = len(voice_state.channel.members)
+                    
+                    osoby_text = "osoba" if current_users == 1 else "osoby" if 2 <= current_users <= 4 else "osób"
+                    lobby_status = f"{current_users}/{user_limit} {osoby_text}" if user_limit > 0 else f"{current_users} {osoby_text}"
+                    vc_url = f"https://discord.com/channels/{message.guild.id}/{voice_state.channel.id}"
 
                     embed = discord.Embed(
                         title=f"🎮 {game_title}!",
