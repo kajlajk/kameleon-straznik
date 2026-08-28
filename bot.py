@@ -138,7 +138,7 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Wizytówki"):
 
         if embed:
             for field in embed.fields:
-                if field.name == "💬 Treść":
+                if field.name == "💬 O mnie":
                     current_desc = field.value
                     break
 
@@ -160,13 +160,13 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Wizytówki"):
             
             description_updated = False
             for i, field in enumerate(embed.fields):
-                if field.name == "💬 Treść":
-                    embed.set_field_at(i, name="💬 Treść", value=new_desc_value, inline=False)
+                if field.name == "💬 O mnie":
+                    embed.set_field_at(i, name="💬 O mnie", value=new_desc_value, inline=False)
                     description_updated = True
                     break
             
             if not description_updated:
-                embed.add_field(name="💬 Treść", value=new_desc_value, inline=False)
+                embed.add_field(name="💬 O mnie", value=new_desc_value, inline=False)
 
             await self.target_message.edit(embed=embed)
             await interaction.response.send_message("✅ Wizytówka zaktualizowana!", ephemeral=True)
@@ -308,9 +308,12 @@ async def on_message(message):
                     # 1. Opis użytkownika
                     embed.add_field(name="💬 O mnie", value=clean_content, inline=False)
 
-                    # 2. Frazy kluczowe do wyszukiwania ról
+                    # 2. Frazy kluczowe do wygryzania odpowiednich ról
                     plec_keywords = ["mężczyzna", "kobieta", "niebinarność"]
-                    wiek_keywords = ["13-15", "16-18", "19-24", "25+"]
+                    
+                    # Poszerzone słowa kluczowe dla wieku (łapie różne rodzaje myślników/spacji)
+                    wiek_keywords = ["13-15", "16-18", "19-24", "25+", "13–15", "16–18", "19–24", "13 - 15", "16 - 18", "19 - 24"]
+                    
                     status_keywords = ["singiel", "singielka", "w związku", "zajęty", "zajęta"]
                     wojewodztwo_keywords = [
                         "dolnośląskie", "kujawsko-pomorskie", "lubelskie", "lubuskie", 
@@ -324,25 +327,33 @@ async def on_message(message):
                     status_role = None
                     wojewodztwo_role = None
 
-                    # Przypisywanie ról w odpowiednich zmiennych
+                    # Skanowanie ról użytkownika
                     for r in author.roles:
                         r_name = r.name.lower()
+                        
                         if not plec_role and any(k in r_name for k in plec_keywords):
                             plec_role = r.mention
-                        elif not wiek_role and any(k in r_name for k in wiek_keywords):
-                            wiek_role = r.mention
+                        # Zaawansowane sprawdzanie wieku (np. jeśli rola zawiera zakresem wiekowym lub liczbę)
+                        elif not wiek_role and (any(k in r_name for k in wiek_keywords) or re.search(r'\b(1[3-9]|[2-9][0-9])\b', r_name)):
+                            # Pomijamy role poziomów/kameleonów, by nie przypisać przypadkowo poziomu jako wieku
+                            if "lvl" not in r_name and "poziom" not in r_name and "kameleon" not in r_name:
+                                wiek_role = r.mention
                         elif not status_role and any(k in r_name for k in status_keywords):
                             status_role = r.mention
                         elif not wojewodztwo_role and any(k in r_name for k in wojewodztwo_keywords):
                             wojewodztwo_role = r.mention
 
-                    # Dodawanie pól jedno pod drugim (Kolejność: Płeć -> Wiek -> Status -> Województwo)
+                    # WYŚWIETLANIE PÓL W ŚCIŚLE ZDEFINIOWANEJ KOLEJNOŚCI (JEDNO POD DRUGIM):
+                    # 1. Płeć
                     if plec_role:
                         embed.add_field(name="👤 Płeć", value=plec_role, inline=False)
+                    # 2. Wiek (między Płcią a Statusem)
                     if wiek_role:
                         embed.add_field(name="🎂 Wiek", value=wiek_role, inline=False)
+                    # 3. Status
                     if status_role:
                         embed.add_field(name="❤️ Status", value=status_role, inline=False)
+                    # 4. Województwo
                     if wojewodztwo_role:
                         embed.add_field(name="📍 Województwo", value=wojewodztwo_role, inline=False)
 
