@@ -160,13 +160,13 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Wizytówki"):
             
             description_updated = False
             for i, field in enumerate(embed.fields):
-                if field.name == "💬 O mnie":
-                    embed.set_field_at(i, name="💬 O mnie", value=new_desc_value, inline=False)
+                if field.name == "💬 Treść":
+                    embed.set_field_at(i, name="💬 Treść", value=new_desc_value, inline=False)
                     description_updated = True
                     break
             
             if not description_updated:
-                embed.add_field(name="💬 O mnie", value=new_desc_value, inline=False)
+                embed.add_field(name="💬 Treść", value=new_desc_value, inline=False)
 
             await self.target_message.edit(embed=embed)
             await interaction.response.send_message("✅ Wizytówka zaktualizowana!", ephemeral=True)
