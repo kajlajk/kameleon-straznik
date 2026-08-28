@@ -24,8 +24,24 @@ INFO_CHANNEL_ID = 1542093397593030747
 STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
 
-post_cooldowns = {} 
+# --- LISTA NAZW RÓL INFORMACYJNYCH (DOPASOWANA DO TWOICH RÓL Z DISCORDA) ---
+# Bot szuka u użytkownika ról zawierających poniższe nazwy/słowa i wyświetla je w wizytówce:
+KNOWN_INFO_ROLES = [
+    # Płeć
+    "Mężczyzna", "Kobieta", "Niebinarność",
+    # Wiek
+    "13-15", "16-18", "19-24", "25+",
+    # Status / Relacja
+    "Singiel / Singielka", "W związku", "Zajęty / Zajęta",
+    # Platformy
+    "PC / Komputer", "Console", "PlayStation", "Xbox", "Switch", "Mobile",
+    # Styl grania
+    "Wieczorny gracz / Wieczory", "Nocny marek", "Gracz weekendowy",
+    # Społeczności
+    "LGBT+", "Ally / Sojusznik"
+]
 
+post_cooldowns = {} 
 warnings = {}
 last_random_message = 0
 answered_users = set()
@@ -129,62 +145,48 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 
 # --- KLASY INTERFEJSU WIZYTÓWEK / OGŁOSZEŃ ---
 
-class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Ogłoszenia / Wizytówki"):
+class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Wizytówki"):
     def __init__(self, target_message: discord.Message):
         super().__init__()
         self.target_message = target_message
 
         embed = self.target_message.embeds[0] if self.target_message.embeds else None
-        
         current_desc = ""
-        current_game = "Gry / Wspólnej zabawy"
 
         if embed:
-            if embed.title:
-                current_game = embed.title.replace("🎮 Szukamy graczy do ", "").replace("✨ Wizytówka: ", "").replace("!", "").strip()
-
             for field in embed.fields:
-                if field.name == "📝 Opis":
+                if field.name == "💬 O mnie":
                     current_desc = field.value
                     break
 
-        self.game_name = discord.ui.TextInput(
-            label="Tytuł / Gra / Aktywność",
-            style=discord.TextStyle.short,
-            default=current_game,
-            max_length=100,
-            required=True
-        )
-        self.add_item(self.game_name)
-
         self.new_content = discord.ui.TextInput(
-            label="Opis wizytówki / ogłoszenia",
+            label="Napisz coś o sobie",
             style=discord.TextStyle.paragraph,
             default=current_desc,
+            placeholder="Opisz swoje zainteresowania, w co grasz, kogo chcesz poznać...",
             max_length=1000,
-            required=False
+            required=True
         )
         self.add_item(self.new_content)
 
     async def on_submit(self, interaction: discord.Interaction):
         try:
             embed = self.target_message.embeds[0]
-            embed.title = f"✨ {self.game_name.value}"
             embed.timestamp = datetime.now(timezone.utc)
             new_desc_value = self.new_content.value if self.new_content.value else "*Brak opisu.*"
             
             description_updated = False
             for i, field in enumerate(embed.fields):
-                if field.name == "📝 Opis":
-                    embed.set_field_at(i, name="📝 Opis", value=new_desc_value, inline=False)
+                if field.name == "💬 O mnie":
+                    embed.set_field_at(i, name="💬 O mnie", value=new_desc_value, inline=False)
                     description_updated = True
                     break
             
             if not description_updated:
-                embed.add_field(name="📝 Opis", value=new_desc_value, inline=False)
+                embed.add_field(name="💬 O mnie", value=new_desc_value, inline=False)
 
             await self.target_message.edit(embed=embed)
-            await interaction.response.send_message("✅ Wizytówka została zaktualizowana!", ephemeral=True)
+            await interaction.response.send_message("✅ Wizytówka zaktualizowana!", ephemeral=True)
         except Exception as e:
             await interaction.response.send_message(f"❌ Błąd podczas edycji: {e}", ephemeral=True)
 
@@ -200,7 +202,7 @@ class AdvancedPostView(discord.ui.View):
                 url=voice_channel_url
             ))
 
-    @discord.ui.button(label="✏️ Edytuj opis / grę", style=discord.ButtonStyle.secondary)
+    @discord.ui.button(label="✏️ Edytuj opis", style=discord.ButtonStyle.secondary)
     async def edit_post(self, interaction: discord.Interaction, button: discord.ui.Button):
         if interaction.user.id != self.author_id:
             return await interaction.response.send_message("❌ Tylko autor może to edytować!", ephemeral=True)
@@ -298,55 +300,47 @@ async def on_message(message):
                 if target_role:
                     clean_content = clean_content.replace(target_role.mention, '').strip()
 
-                # --- KANAŁ 1: SZUKAM ZNAJOMYCH (ROZBUDOWANA WIZYTÓWKA) ---
+                # --- KANAŁ 1: SZUKAM ZNAJOMYCH (PROFILOWA WIZYTÓWKA) ---
                 if is_znajomi_channel:
                     await message.delete()
                     post_cooldowns[cooldown_key] = now
                     
                     ping_text = f"{target_role.mention} {author.mention}" if target_role else author.mention
-                    
-                    if target_role:
-                        game_title = f"Wizytówka: {re.sub(r'<[^>]+>', '', target_role.name).strip()}"
-                    else:
-                        game_title = f"Wizytówka: {author.display_name}"
 
                     if not clean_content:
                         clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzania czasu!"
 
                     embed = discord.Embed(
-                        title=f"✨ {game_title}",
-                        description=f"Wizytówka użytkownika {author.mention}",
+                        title="✨ Wizytówka profilowa",
                         color=discord.Color.teal(),
                         timestamp=datetime.now(timezone.utc)
                     )
 
                     embed.set_author(
-                        name=f"Wizytówka od {author.display_name}",
+                        name=f"Wizytówka: {author.display_name}",
                         icon_url=author.display_avatar.url if author.display_avatar else None
                     )
                     embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
 
-                    embed.add_field(name="📝 Opis", value=clean_content, inline=False)
-                    embed.add_field(name="📌 Oznaczona rola", value=target_role.mention if target_role else "Brak", inline=True)
+                    embed.add_field(name="💬 O mnie", value=clean_content, inline=False)
 
-                    # Wykrywanie kanału głosowego (opcjonalne na szukam-znajomych)
-                    voice_state = author.voice
-                    vc_url = None
-                    if voice_state and voice_state.channel:
-                        voice_channel_name = f"🎙️ {voice_state.channel.name}"
-                        user_limit = voice_state.channel.user_limit
-                        current_users = len(voice_state.channel.members)
-                        
-                        osoby_text = "osoba" if current_users == 1 else "osoby" if 2 <= current_users <= 4 else "osób"
-                        lobby_status = f"{current_users}/{user_limit} {osoby_text}" if user_limit > 0 else f"{current_users} {osoby_text}"
-                        vc_url = f"https://discord.com/channels/{message.guild.id}/{voice_state.channel.id}"
+                    # Wyciąganie ról profilowych użytkownika (np. Województwo, Wiek, Płeć, Status)
+                    user_info_roles = []
+                    for r in author.roles:
+                        # Szukamy ról z listy lub ról zawierających lokalizacje/województwa
+                        if any(k.lower() in r.name.lower() for k in KNOWN_INFO_ROLES) or "–" in r.name or "-" in r.name:
+                            if r.name != "@everyone" and not r.is_premium_subscriber():
+                                user_info_roles.append(r.mention)
 
-                        embed.add_field(name="Kanał głosowy", value=voice_channel_name, inline=True)
-                        embed.add_field(name="👥 Status lobby", value=lobby_status, inline=False)
+                    if user_info_roles:
+                        embed.add_field(name="📋 Informacje z profilu", value=" • ".join(user_info_roles), inline=False)
 
-                    embed.set_footer(text="Kliknij przycisk poniżej, aby edytować wizytówkę lub dołączyć!")
+                    if target_role:
+                        embed.add_field(name="📌 Oznaczona rola", value=target_role.mention, inline=True)
 
-                    view = AdvancedPostView(author_id=author.id, voice_channel_url=vc_url)
+                    embed.set_footer(text="Chcesz coś zmienić? Kliknij ✏️ Edytuj opis poniżej!")
+
+                    view = AdvancedPostView(author_id=author.id, voice_channel_url=None)
                     await message.channel.send(content=ping_text, embed=embed, view=view)
 
                 # --- KANAŁ 2: SZUKAM DO GRY (WYMAGANY KANAŁ GŁOSOWY) ---
@@ -375,7 +369,7 @@ async def on_message(message):
                         game_title = "Gry"
 
                     if not clean_content:
-                        clean_content = "Hej, szukam kogoś do pogadania i wspólnego spędzania czasu!"
+                        clean_content = "Hej, szukam kogoś do wspólnej gry!"
 
                     voice_channel_name = f"🎙️ {voice_state.channel.name}"
                     user_limit = voice_state.channel.user_limit
@@ -386,7 +380,7 @@ async def on_message(message):
                     vc_url = f"https://discord.com/channels/{message.guild.id}/{voice_state.channel.id}"
 
                     embed = discord.Embed(
-                        title=f"🎮 {game_title}!",
+                        title=f"🎮 Szukamy graczy do {game_title}!",
                         description=f"{author.mention} szuka osób i zaprasza na kanał!",
                         color=discord.Color.red(),
                         timestamp=datetime.now(timezone.utc)
@@ -403,7 +397,7 @@ async def on_message(message):
                     embed.add_field(name="Kanał głosowy", value=voice_channel_name, inline=True)
                     embed.add_field(name="👥 Status lobby", value=lobby_status, inline=False)
 
-                    embed.set_footer(text="Kliknij przycisk poniżej, aby dołączyć do kanału lub edytować ogłoszenie!")
+                    embed.set_footer(text="Kliknij przycisk poniżej, aby dołączyć do kanału!")
 
                     view = AdvancedPostView(author_id=author.id, voice_channel_url=vc_url)
                     await message.channel.send(content=ping_text, embed=embed, view=view)
