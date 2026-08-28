@@ -24,23 +24,6 @@ INFO_CHANNEL_ID = 1542093397593030747
 STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
 
-# --- LISTA NAZW RÓL INFORMACYJNYCH (DOPASOWANA DO TWOICH RÓL Z DISCORDA) ---
-# Bot szuka u użytkownika ról zawierających poniższe nazwy/słowa i wyświetla je w wizytówce:
-KNOWN_INFO_ROLES = [
-    # Płeć
-    "Mężczyzna", "Kobieta", "Niebinarność",
-    # Wiek
-    "13-15", "16-18", "19-24", "25+",
-    # Status / Relacja
-    "Singiel / Singielka", "W związku", "Zajęty / Zajęta",
-    # Platformy
-    "PC / Komputer", "Console", "PlayStation", "Xbox", "Switch", "Mobile",
-    # Styl grania
-    "Wieczorny gracz / Wieczory", "Nocny marek", "Gracz weekendowy",
-    # Społeczności
-    "LGBT+", "Ally / Sojusznik"
-]
-
 post_cooldowns = {} 
 warnings = {}
 last_random_message = 0
@@ -155,7 +138,7 @@ class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Wizytówki"):
 
         if embed:
             for field in embed.fields:
-                if field.name == "💬 O mnie":
+                if field.name == "💬 Treść":
                     current_desc = field.value
                     break
 
@@ -322,21 +305,49 @@ async def on_message(message):
                     )
                     embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
 
+                    # 1. Opis użytkownika
                     embed.add_field(name="💬 O mnie", value=clean_content, inline=False)
 
-                    # Wyciąganie ról profilowych użytkownika (np. Województwo, Wiek, Płeć, Status)
-                    user_info_roles = []
-                    for r in author.roles:
-                        # Szukamy ról z listy lub ról zawierających lokalizacje/województwa
-                        if any(k.lower() in r.name.lower() for k in KNOWN_INFO_ROLES) or "–" in r.name or "-" in r.name:
-                            if r.name != "@everyone" and not r.is_premium_subscriber():
-                                user_info_roles.append(r.mention)
+                    # 2. Frazy kluczowe do wyszukiwania ról
+                    plec_keywords = ["mężczyzna", "kobieta", "niebinarność"]
+                    wiek_keywords = ["13-15", "16-18", "19-24", "25+"]
+                    status_keywords = ["singiel", "singielka", "w związku", "zajęty", "zajęta"]
+                    wojewodztwo_keywords = [
+                        "dolnośląskie", "kujawsko-pomorskie", "lubelskie", "lubuskie", 
+                        "łódzkie", "małopolskie", "mazowieckie", "opolskie", "podkarpackie", 
+                        "podlaskie", "pomorskie", "śląskie", "świętokrzyskie", 
+                        "warmińsko-mazurskie", "wielkopolskie", "zachodniopomorskie"
+                    ]
 
-                    if user_info_roles:
-                        embed.add_field(name="📋 Informacje z profilu", value=" • ".join(user_info_roles), inline=False)
+                    plec_role = None
+                    wiek_role = None
+                    status_role = None
+                    wojewodztwo_role = None
+
+                    # Przypisywanie ról w odpowiednich zmiennych
+                    for r in author.roles:
+                        r_name = r.name.lower()
+                        if not plec_role and any(k in r_name for k in plec_keywords):
+                            plec_role = r.mention
+                        elif not wiek_role and any(k in r_name for k in wiek_keywords):
+                            wiek_role = r.mention
+                        elif not status_role and any(k in r_name for k in status_keywords):
+                            status_role = r.mention
+                        elif not wojewodztwo_role and any(k in r_name for k in wojewodztwo_keywords):
+                            wojewodztwo_role = r.mention
+
+                    # Dodawanie pól jedno pod drugim (Kolejność: Płeć -> Wiek -> Status -> Województwo)
+                    if plec_role:
+                        embed.add_field(name="👤 Płeć", value=plec_role, inline=False)
+                    if wiek_role:
+                        embed.add_field(name="🎂 Wiek", value=wiek_role, inline=False)
+                    if status_role:
+                        embed.add_field(name="❤️ Status", value=status_role, inline=False)
+                    if wojewodztwo_role:
+                        embed.add_field(name="📍 Województwo", value=wojewodztwo_role, inline=False)
 
                     if target_role:
-                        embed.add_field(name="📌 Oznaczona rola", value=target_role.mention, inline=True)
+                        embed.add_field(name="📌 Oznaczona rola", value=target_role.mention, inline=False)
 
                     embed.set_footer(text="Chcesz coś zmienić? Kliknij ✏️ Edytuj opis poniżej!")
 
