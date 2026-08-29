@@ -149,14 +149,11 @@ def parse_event_datetime(date_str: str) -> datetime:
 
     dt_pl = None
 
-    # 1. Sam czas dzisiaj np. "14:19" lub "20:00"
     if re.match(r'^\d{1,2}:\d{2}$', date_str):
         h, m = map(int, date_str.split(':'))
         dt_pl = now_pl.replace(hour=h, minute=m, second=0, microsecond=0)
         if dt_pl < now_pl:
             dt_pl += timedelta(days=1)
-
-    # 2. Pełna data np. "29.08.2026 14:19"
     else:
         formats = [
             "%d.%m.%Y %H:%M", "%d.%m.%Y %H:%M:%S",
@@ -211,7 +208,7 @@ class EventSignUpView(discord.ui.View):
         else:
             await interaction.response.send_message("ℹ️ Nie byłeś/aś zapisany/a na ten event.", ephemeral=True)
 
-    @discord.ui.button(label="🔔 Przypomnij (@Wydarzenia)", style=discord.ButtonStyle.secondary, custom_id="event_ping_btn")
+    @discord.ui.button(label="🔔 Przypomnij (@Event)", style=discord.ButtonStyle.secondary, custom_id="event_ping_btn")
     async def manual_ping(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.author_id and interaction.user.id != self.author_id and not can_manage_events(interaction.user):
             return await interaction.response.send_message("❌ Tylko organizator eventu lub moderator może użyć tego przycisku!", ephemeral=True)
@@ -248,6 +245,40 @@ class EventSignUpView(discord.ui.View):
             return await interaction.response.send_message("❌ Tylko organizator lub moderator może edytować to wydarzenie!", ephemeral=True)
 
         await interaction.response.send_modal(EditEventModal(interaction.message, self))
+
+    @discord.ui.button(label="🗑️ Usuń event", style=discord.ButtonStyle.danger, custom_id="event_delete_btn")
+    async def delete_event(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.author_id and interaction.user.id != self.author_id and not can_manage_events(interaction.user):
+            return await interaction.response.send_message("❌ Tylko organizator lub moderator może usunąć ten event!", ephemeral=True)
+
+        await interaction.response.defer(ephemeral=True)
+
+        # 1. Czyszczenie roli eventowej uczestnikom
+        role = interaction.guild.get_role(ROLE_EVENT_ID)
+        cleaned_members = 0
+        if role:
+            for member in role.members:
+                try:
+                    await member.remove_roles(role)
+                    cleaned_members += 1
+                except Exception:
+                    pass
+
+        # 2. Usuwanie ewentualnego ostatniego przypomnienia (pingu)
+        if self.last_ping_msg_id:
+            try:
+                ping_msg = await interaction.channel.fetch_message(self.last_ping_msg_id)
+                await ping_msg.delete()
+            except Exception:
+                pass
+
+        # 3. Usuwanie głównej wiadomości eventu
+        try:
+            await interaction.message.delete()
+        except Exception:
+            pass
+
+        await interaction.followup.send(f"✅ Event został pomyślnie usunięty, a rola została zdjęta u {cleaned_members} osób.")
 
 
 class EditEventModal(discord.ui.Modal, title="Edytuj Event"):
@@ -490,10 +521,8 @@ async def on_ready():
     print("BOT ONLINE TEST OK")
     print(f"Zalogowano jako {bot.user}")
 
-    # Rejestracja powiązań widoków
     bot.add_view(EventSignUpView())
 
-    # --- SYNCHRONIZACJA KOMEND SLASH DO MENU DISCORDA ---
     try:
         synced = await bot.tree.sync()
         print(f"✅ Zsynchronizowano {len(synced)} komend(y) Slash w menu Discorda!")
@@ -523,7 +552,6 @@ async def stworz_event_slash(interaction: discord.Interaction):
 
 @bot.command(name="stworz_event", aliases=["event"])
 async def stworz_event_cmd(ctx):
-    """Tworzy przycisk z wywołaniem formularza eventu (Wersja !stworz_event / !event)."""
     try:
         await ctx.message.delete()
     except Exception:
@@ -564,7 +592,6 @@ async def zakoncz_event_slash(interaction: discord.Interaction):
 
 @bot.command(name="zakoncz_event")
 async def zakoncz_event_cmd(ctx):
-    """Zdejmuje rolę eventową wszystkim osobom po zakończeniu zabawy (Wersja !zakoncz_event)."""
     try:
         await ctx.message.delete()
     except Exception:
