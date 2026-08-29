@@ -490,7 +490,15 @@ async def on_ready():
     print("BOT ONLINE TEST OK")
     print(f"Zalogowano jako {bot.user}")
 
+    # Rejestracja powiązań widoków
     bot.add_view(EventSignUpView())
+
+    # --- SYNCHRONIZACJA KOMEND SLASH DO MENU DISCORDA ---
+    try:
+        synced = await bot.tree.sync()
+        print(f"✅ Zsynchronizowano {len(synced)} komend(y) Slash w menu Discorda!")
+    except Exception as e:
+        print(f"❌ Błąd synchronizacji komend Slash: {e}")
 
     if not check_timeouts.is_running(): check_timeouts.start()
     if not update_member_status.is_running(): update_member_status.start()
@@ -498,11 +506,24 @@ async def on_ready():
     if not cycle_info_channel.is_running(): cycle_info_channel.start()
 
 
-# --- KOMENDY EVENTOWE TEKSTOWE (!) ---
+# --- KOMENDY EVENTOWE TEKSTOWE (!) I SLASH (/) ---
+
+@bot.tree.command(name="stworz_event", description="Tworzy formularz do tworzenia wydarzenia/eventu.")
+async def stworz_event_slash(interaction: discord.Interaction):
+    if not can_manage_events(interaction.user):
+        return await interaction.response.send_message("❌ Nie masz uprawnień do tworzenia eventów.", ephemeral=True)
+
+    if interaction.channel_id != EVENT_CHANNEL_ID:
+        event_channel = interaction.guild.get_channel(EVENT_CHANNEL_ID)
+        channel_mention = event_channel.mention if event_channel else "kanału eventowego"
+        return await interaction.response.send_message(f"⚠️ Tej komendy możesz używać wyłącznie na kanale {channel_mention}!", ephemeral=True)
+
+    await interaction.response.send_message("Oto formularz wydarzenia (kliknij poniższy przycisk):", view=OpenEventModalView(), ephemeral=True)
+
 
 @bot.command(name="stworz_event", aliases=["event"])
 async def stworz_event_cmd(ctx):
-    """Tworzy przycisk z wywołaniem formularza eventu."""
+    """Tworzy przycisk z wywołaniem formularza eventu (Wersja !stworz_event / !event)."""
     try:
         await ctx.message.delete()
     except Exception:
@@ -518,9 +539,32 @@ async def stworz_event_cmd(ctx):
 
     await ctx.send("Oto formularz wydarzenia (kliknij poniższy przycisk):", view=OpenEventModalView(), delete_after=60)
 
+
+@bot.tree.command(name="zakoncz_event", description="Usuwa rolę eventową uczestnikom po zakończeniu wydarzenia.")
+async def zakoncz_event_slash(interaction: discord.Interaction):
+    if not can_manage_events(interaction.user):
+        return await interaction.response.send_message("❌ Brak uprawnień do komendy `/zakoncz_event`.", ephemeral=True)
+
+    role = interaction.guild.get_role(ROLE_EVENT_ID)
+    if not role:
+        return await interaction.response.send_message("❌ Nie znaleziono roli eventowej.", ephemeral=True)
+
+    await interaction.response.defer(ephemeral=True)
+
+    count = 0
+    for member in role.members:
+        try:
+            await member.remove_roles(role)
+            count += 1
+        except Exception:
+            pass
+    
+    await interaction.followup.send(f"✅ Event zakończony! Pomyślnie usunięto rolę **{role.name}** u **{count}** użytkowników.")
+
+
 @bot.command(name="zakoncz_event")
 async def zakoncz_event_cmd(ctx):
-    """Zdejmuje rolę eventową wszystkim osobom po zakończeniu zabawy."""
+    """Zdejmuje rolę eventową wszystkim osobom po zakończeniu zabawy (Wersja !zakoncz_event)."""
     try:
         await ctx.message.delete()
     except Exception:
