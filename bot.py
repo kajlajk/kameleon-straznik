@@ -6,6 +6,7 @@ import time
 import random 
 import re
 from datetime import timedelta, datetime, timezone
+from zoneinfo import ZoneInfo
 from discord.ext import tasks
 
 TOKEN = os.getenv("TOKEN")
@@ -140,22 +141,22 @@ def can_manage_events(user: discord.Member) -> bool:
     return mod_role in user.roles if mod_role else False
 
 def parse_event_datetime(date_str: str) -> datetime:
-    """Konwertuje tekst daty wpisanej w czasie lokalnym na obiekt ze strefą UTC."""
+    """Konwertuje tekst daty na obiekt ze strefą UTC, wymuszając polski czas (Europe/Warsaw)."""
     date_str = date_str.strip()
     
-    local_tz = datetime.now().astimezone().tzinfo
-    now_local = datetime.now(local_tz)
-    
-    dt_local = None
+    poland_tz = ZoneInfo("Europe/Warsaw")
+    now_pl = datetime.now(poland_tz)
 
-    # 1. Sam czas dzisiaj np. "14:16" lub "20:00"
+    dt_pl = None
+
+    # 1. Sam czas dzisiaj np. "14:19" lub "20:00"
     if re.match(r'^\d{1,2}:\d{2}$', date_str):
         h, m = map(int, date_str.split(':'))
-        dt_local = now_local.replace(hour=h, minute=m, second=0, microsecond=0)
-        if dt_local < now_local:
-            dt_local += timedelta(days=1)
+        dt_pl = now_pl.replace(hour=h, minute=m, second=0, microsecond=0)
+        if dt_pl < now_pl:
+            dt_pl += timedelta(days=1)
 
-    # 2. Pełna data np. "29.08.2026 14:16" lub "29.08 14:16"
+    # 2. Pełna data np. "29.08.2026 14:19"
     else:
         formats = [
             "%d.%m.%Y %H:%M", "%d.%m.%Y %H:%M:%S",
@@ -165,14 +166,14 @@ def parse_event_datetime(date_str: str) -> datetime:
             try:
                 dt_parsed = datetime.strptime(date_str, fmt)
                 if dt_parsed.year == 1900:
-                    dt_parsed = dt_parsed.replace(year=now_local.year)
-                dt_local = dt_parsed.replace(tzinfo=local_tz)
+                    dt_parsed = dt_parsed.replace(year=now_pl.year)
+                dt_pl = dt_parsed.replace(tzinfo=poland_tz)
                 break
             except ValueError:
                 continue
 
-    if dt_local:
-        return dt_local.astimezone(timezone.utc)
+    if dt_pl:
+        return dt_pl.astimezone(timezone.utc)
     
     return None
 
