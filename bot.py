@@ -194,7 +194,7 @@ class EventSignUpView(discord.ui.View):
             await interaction.response.send_message("ℹ️ Jesteś już zapisany/a na ten event!", ephemeral=True)
         else:
             await interaction.user.add_roles(role)
-            await interaction.followup.send(f"✅ Event został pomyślnie usunięty, a rola została zdjęta u {cleaned_members} osób.", ephemeral=True)
+            await interaction.response.send_message(f"✅ Zapisano na event! Otrzymujesz rolę {role.mention}.", ephemeral=True)
 
     @discord.ui.button(label="Wypisz się ❌", style=discord.ButtonStyle.danger, custom_id="event_signout_btn")
     async def sign_out(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -278,7 +278,11 @@ class EventSignUpView(discord.ui.View):
         except Exception:
             pass
 
-        await interaction.followup.send(f"✅ Event został pomyślnie usunięty, a rola została zdjęta u {cleaned_members} osób.")
+        # DODANY PARAMETR ephemeral=True – TYLKO DLA OSOBY USUWAJĄCEJ!
+        await interaction.followup.send(
+            f"✅ Event został pomyślnie usunięty, a rola została zdjęta u {cleaned_members} osób.", 
+            ephemeral=True
+        )
 
 
 class EditEventModal(discord.ui.Modal, title="Edytuj Event"):
@@ -948,7 +952,7 @@ async def check_timeouts():
                 
                 if seconds <= 70: duration = "60 sekund"
                 elif seconds <= 310: duration = "5 minut"
-                elif seconds <= 610: duration = "10 minut"
+                elif seconds <= 610: duration = "1 godzina"
                 elif seconds <= 3610: duration = "1 godzina"
                 elif seconds <= 86410: duration = "1 dzień"
                 else: duration = "1 tydzień"
