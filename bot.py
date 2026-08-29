@@ -194,7 +194,7 @@ class EventSignUpView(discord.ui.View):
             await interaction.response.send_message("ℹ️ Jesteś już zapisany/a na ten event!", ephemeral=True)
         else:
             await interaction.user.add_roles(role)
-            await interaction.response.send_message(f"✅ Zapisano na event! Otrzymujesz rolę {role.mention}.", ephemeral=True)
+            await interaction.followup.send(f"✅ Event został pomyślnie usunięty, a rola została zdjęta u {cleaned_members} osób.", ephemeral=True)
 
     @discord.ui.button(label="Wypisz się ❌", style=discord.ButtonStyle.danger, custom_id="event_signout_btn")
     async def sign_out(self, interaction: discord.Interaction, button: discord.ui.Button):
