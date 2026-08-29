@@ -140,31 +140,40 @@ def can_manage_events(user: discord.Member) -> bool:
     return mod_role in user.roles if mod_role else False
 
 def parse_event_datetime(date_str: str) -> datetime:
-    """Konwertuje tekst daty na obiekt datetime ze strefą czasową UTC."""
+    """Konwertuje tekst daty wpisanej w czasie lokalnym na obiekt ze strefą UTC."""
     date_str = date_str.strip()
-    now = datetime.now()
     
-    # 1. Sam czas dzisiaj np. "20:00" lub "8:30"
+    local_tz = datetime.now().astimezone().tzinfo
+    now_local = datetime.now(local_tz)
+    
+    dt_local = None
+
+    # 1. Sam czas dzisiaj np. "14:16" lub "20:00"
     if re.match(r'^\d{1,2}:\d{2}$', date_str):
         h, m = map(int, date_str.split(':'))
-        dt_local = now.replace(hour=h, minute=m, second=0, microsecond=0)
-        if dt_local < now:
+        dt_local = now_local.replace(hour=h, minute=m, second=0, microsecond=0)
+        if dt_local < now_local:
             dt_local += timedelta(days=1)
-        return dt_local.astimezone(timezone.utc)
 
-    # 2. Pełna data np. "25.10.2026 20:00" lub "25.10 20:00"
-    formats = [
-        "%d.%m.%Y %H:%M", "%d.%m.%Y %H:%M:%S",
-        "%d.%m %H:%M", "%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M"
-    ]
-    for fmt in formats:
-        try:
-            dt_local = datetime.strptime(date_str, fmt)
-            if dt_local.year == 1900:
-                dt_local = dt_local.replace(year=now.year)
-            return dt_local.astimezone(timezone.utc)
-        except ValueError:
-            continue
+    # 2. Pełna data np. "29.08.2026 14:16" lub "29.08 14:16"
+    else:
+        formats = [
+            "%d.%m.%Y %H:%M", "%d.%m.%Y %H:%M:%S",
+            "%d.%m %H:%M", "%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M"
+        ]
+        for fmt in formats:
+            try:
+                dt_parsed = datetime.strptime(date_str, fmt)
+                if dt_parsed.year == 1900:
+                    dt_parsed = dt_parsed.replace(year=now_local.year)
+                dt_local = dt_parsed.replace(tzinfo=local_tz)
+                break
+            except ValueError:
+                continue
+
+    if dt_local:
+        return dt_local.astimezone(timezone.utc)
+    
     return None
 
 
@@ -175,7 +184,7 @@ class EventSignUpView(discord.ui.View):
         super().__init__(timeout=None)
         self.author_id = author_id
         self.target_timestamp = target_timestamp
-        self.last_ping_msg_id = last_ping_msg_id  # Pamiętamy ID starego przypomnienia
+        self.last_ping_msg_id = last_ping_msg_id
 
     @discord.ui.button(label="Zapisz się 🙋", style=discord.ButtonStyle.success, custom_id="event_signup_btn")
     async def sign_up(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -206,13 +215,12 @@ class EventSignUpView(discord.ui.View):
         if self.author_id and interaction.user.id != self.author_id and not can_manage_events(interaction.user):
             return await interaction.response.send_message("❌ Tylko organizator eventu lub moderator może użyć tego przycisku!", ephemeral=True)
 
-        # 1. Kasowanie poprzedniego przypomnienia, jeśli istnieje
         if self.last_ping_msg_id:
             try:
                 old_msg = await interaction.channel.fetch_message(self.last_ping_msg_id)
                 await old_msg.delete()
             except Exception:
-                pass  # Jeśli wiadomość została już kiedyś ręcznie usunięta, ignorujemy błąd
+                pass
 
         role = interaction.guild.get_role(ROLE_EVENT_ID)
         role_ping = role.mention if role else "@here"
@@ -225,14 +233,13 @@ class EventSignUpView(discord.ui.View):
             else:
                 remaining_str = "\n🔥 **Event właśnie się rozpoczyna lub trwa!**"
 
-        # 2. Wysyłanie nowego przypomnienia i zapisywanie jego ID
         new_ping_msg = await interaction.channel.send(
             f"🔔 **PRZYPOMNIENIE O EVENTOWYM SPOTKANIU!** {role_ping}\n"
             f"Zapraszamy do dołączenia!{remaining_str}"
         )
-        self.last_ping_msg_id = new_ping_msg.id  # Zapis w instancji widoku
+        self.last_ping_msg_id = new_ping_msg.id
 
-        await interaction.response.send_message("✅ Przypomnienie zostało wysłane (stare usunięte)!", ephemeral=True)
+        await interaction.response.send_message("✅ Przypomnienie zostało wysłane!", ephemeral=True)
 
     @discord.ui.button(label="✏️ Edytuj event", style=discord.ButtonStyle.primary, custom_id="event_edit_btn")
     async def edit_event(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -302,7 +309,6 @@ class EditEventModal(discord.ui.Modal, title="Edytuj Event"):
         for f in new_fields:
             embed.add_field(name=f["name"], value=f["value"], inline=f["inline"])
 
-        # Zachowujemy ID poprzedniego przypomnienia przy edycji
         view = EventSignUpView(
             author_id=interaction.user.id,
             target_timestamp=target_ts,
