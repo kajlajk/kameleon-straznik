@@ -140,17 +140,17 @@ def can_manage_events(user: discord.Member) -> bool:
     return mod_role in user.roles if mod_role else False
 
 def parse_event_datetime(date_str: str) -> datetime:
-    """Konwertuje tekst daty na obiekt datetime."""
+    """Konwertuje tekst daty na obiekt datetime ze strefą czasową UTC."""
     date_str = date_str.strip()
     now = datetime.now()
     
     # 1. Sam czas dzisiaj np. "20:00" lub "8:30"
     if re.match(r'^\d{1,2}:\d{2}$', date_str):
         h, m = map(int, date_str.split(':'))
-        dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
-        if dt < now:
-            dt += timedelta(days=1)
-        return dt
+        dt_local = now.replace(hour=h, minute=m, second=0, microsecond=0)
+        if dt_local < now:
+            dt_local += timedelta(days=1)
+        return dt_local.astimezone(timezone.utc)
 
     # 2. Pełna data np. "25.10.2026 20:00" lub "25.10 20:00"
     formats = [
@@ -159,10 +159,10 @@ def parse_event_datetime(date_str: str) -> datetime:
     ]
     for fmt in formats:
         try:
-            dt = datetime.strptime(date_str, fmt)
-            if dt.year == 1900:
-                dt = dt.replace(year=now.year)
-            return dt
+            dt_local = datetime.strptime(date_str, fmt)
+            if dt_local.year == 1900:
+                dt_local = dt_local.replace(year=now.year)
+            return dt_local.astimezone(timezone.utc)
         except ValueError:
             continue
     return None
@@ -171,10 +171,11 @@ def parse_event_datetime(date_str: str) -> datetime:
 # --- KLASY INTERFEJSU EVENTÓW ---
 
 class EventSignUpView(discord.ui.View):
-    def __init__(self, author_id: int = None, target_timestamp: int = None):
+    def __init__(self, author_id: int = None, target_timestamp: int = None, last_ping_msg_id: int = None):
         super().__init__(timeout=None)
         self.author_id = author_id
         self.target_timestamp = target_timestamp
+        self.last_ping_msg_id = last_ping_msg_id  # Pamiętamy ID starego przypomnienia
 
     @discord.ui.button(label="Zapisz się 🙋", style=discord.ButtonStyle.success, custom_id="event_signup_btn")
     async def sign_up(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -205,6 +206,14 @@ class EventSignUpView(discord.ui.View):
         if self.author_id and interaction.user.id != self.author_id and not can_manage_events(interaction.user):
             return await interaction.response.send_message("❌ Tylko organizator eventu lub moderator może użyć tego przycisku!", ephemeral=True)
 
+        # 1. Kasowanie poprzedniego przypomnienia, jeśli istnieje
+        if self.last_ping_msg_id:
+            try:
+                old_msg = await interaction.channel.fetch_message(self.last_ping_msg_id)
+                await old_msg.delete()
+            except Exception:
+                pass  # Jeśli wiadomość została już kiedyś ręcznie usunięta, ignorujemy błąd
+
         role = interaction.guild.get_role(ROLE_EVENT_ID)
         role_ping = role.mention if role else "@here"
         
@@ -216,24 +225,28 @@ class EventSignUpView(discord.ui.View):
             else:
                 remaining_str = "\n🔥 **Event właśnie się rozpoczyna lub trwa!**"
 
-        await interaction.channel.send(
+        # 2. Wysyłanie nowego przypomnienia i zapisywanie jego ID
+        new_ping_msg = await interaction.channel.send(
             f"🔔 **PRZYPOMNIENIE O EVENTOWYM SPOTKANIU!** {role_ping}\n"
             f"Zapraszamy do dołączenia!{remaining_str}"
         )
-        await interaction.response.send_message("✅ Przypomnienie zostało wysłane!", ephemeral=True)
+        self.last_ping_msg_id = new_ping_msg.id  # Zapis w instancji widoku
+
+        await interaction.response.send_message("✅ Przypomnienie zostało wysłane (stare usunięte)!", ephemeral=True)
 
     @discord.ui.button(label="✏️ Edytuj event", style=discord.ButtonStyle.primary, custom_id="event_edit_btn")
     async def edit_event(self, interaction: discord.Interaction, button: discord.ui.Button):
         if self.author_id and interaction.user.id != self.author_id and not can_manage_events(interaction.user):
             return await interaction.response.send_message("❌ Tylko organizator lub moderator może edytować to wydarzenie!", ephemeral=True)
 
-        await interaction.response.send_modal(EditEventModal(interaction.message))
+        await interaction.response.send_modal(EditEventModal(interaction.message, self))
 
 
 class EditEventModal(discord.ui.Modal, title="Edytuj Event"):
-    def __init__(self, target_message: discord.Message):
+    def __init__(self, target_message: discord.Message, current_view: EventSignUpView):
         super().__init__()
         self.target_message = target_message
+        self.current_view = current_view
         
         embed = target_message.embeds[0] if target_message.embeds else None
         
@@ -289,8 +302,12 @@ class EditEventModal(discord.ui.Modal, title="Edytuj Event"):
         for f in new_fields:
             embed.add_field(name=f["name"], value=f["value"], inline=f["inline"])
 
-        author_id = interaction.user.id
-        view = EventSignUpView(author_id=author_id, target_timestamp=target_ts)
+        # Zachowujemy ID poprzedniego przypomnienia przy edycji
+        view = EventSignUpView(
+            author_id=interaction.user.id,
+            target_timestamp=target_ts,
+            last_ping_msg_id=self.current_view.last_ping_msg_id
+        )
 
         await self.target_message.edit(embed=embed, view=view)
         await interaction.response.send_message("✅ Zaktualizowano dane eventu!", ephemeral=True)
@@ -340,7 +357,7 @@ class CreateEventModal(discord.ui.Modal, title="Stwórz Nowy Event"):
 
         parsed_dt = parse_event_datetime(self.data_godzina.value)
         target_timestamp = int(parsed_dt.timestamp()) if parsed_dt else None
-        delay_seconds = (parsed_dt - datetime.now()).total_seconds() if parsed_dt else 0
+        delay_seconds = (parsed_dt - datetime.now(timezone.utc)).total_seconds() if parsed_dt else 0
 
         embed = discord.Embed(
             title=f"🎉 NOWY EVENT: {self.nazwa_gry.value}",
