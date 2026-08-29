@@ -21,6 +21,10 @@ SCREENY_CHANNEL = 1515570115515650068
 LOG_CHANNEL_ID = 1521585275229442178
 INFO_CHANNEL_ID = 1542093397593030747
 
+# --- SKONFIGUROWANE ID DLA EVENTÓW ---
+EVENT_CHANNEL_ID = 1543224283633811497  
+ROLE_EVENT_ID = 1543224655698075728     
+
 STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
 
@@ -126,6 +130,101 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
+# --- KLASY INTERFEJSU EVENTÓW ---
+
+class EventSignUpView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=None)
+
+    @discord.ui.button(label="Zapisz się 🙋", style=discord.ButtonStyle.success, custom_id="event_signup_btn")
+    async def sign_up(self, interaction: discord.Interaction, button: discord.ui.Button):
+        role = interaction.guild.get_role(ROLE_EVENT_ID)
+        if not role:
+            return await interaction.response.send_message("❌ Rola eventowa nie została odnaleziona w systemie!", ephemeral=True)
+
+        if role in interaction.user.roles:
+            await interaction.response.send_message("ℹ️ Jesteś już zapisany/a na ten event!", ephemeral=True)
+        else:
+            await interaction.user.add_roles(role)
+            await interaction.response.send_message(f"✅ Zapisano na event! Otrzymujesz rolę {role.mention}.", ephemeral=True)
+
+    @discord.ui.button(label="Wypisz się ❌", style=discord.ButtonStyle.danger, custom_id="event_signout_btn")
+    async def sign_out(self, interaction: discord.Interaction, button: discord.ui.Button):
+        role = interaction.guild.get_role(ROLE_EVENT_ID)
+        if not role:
+            return await interaction.response.send_message("❌ Rola eventowa nie została odnaleziona w systemie!", ephemeral=True)
+
+        if role in interaction.user.roles:
+            await interaction.user.remove_roles(role)
+            await interaction.response.send_message("🗑️ Wypisano z eventu. Rola została usunięta.", ephemeral=True)
+        else:
+            await interaction.response.send_message("ℹ️ Nie byłeś/aś zapisany/a na ten event.", ephemeral=True)
+
+class OpenEventModalView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=60)
+
+    @discord.ui.button(label="📝 Otwórz formularz eventu", style=discord.ButtonStyle.primary)
+    async def open_modal(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.user.id != OWNER_ID and not interaction.user.guild_permissions.administrator:
+            return await interaction.response.send_message("❌ Brak uprawnień do tworzenia eventów.", ephemeral=True)
+        await interaction.response.send_modal(CreateEventModal())
+
+class CreateEventModal(discord.ui.Modal, title="Stwórz Nowy Event"):
+    nazwa_gry = discord.ui.TextInput(
+        label="Nazwa gry / wydarzenia",
+        placeholder="np. Mafia / Karaoke / CS:GO 1v1",
+        required=True
+    )
+    data_godzina = discord.ui.TextInput(
+        label="Data i godzina",
+        placeholder="np. Piątek, godzina 20:00",
+        required=True
+    )
+    koszt = discord.ui.TextInput(
+        label="Koszt gry",
+        placeholder="np. Darmowa / Wymagana własna gra",
+        default="Darmowa",
+        required=True
+    )
+    opis = discord.ui.TextInput(
+        label="Dodatkowy opis / zasady",
+        style=discord.TextStyle.paragraph,
+        placeholder="Szczegóły wydarzenia, zasady, linki itp.",
+        required=False
+    )
+
+    async def on_submit(self, interaction: discord.Interaction):
+        channel = interaction.guild.get_channel(EVENT_CHANNEL_ID)
+        event_role = interaction.guild.get_role(ROLE_EVENT_ID)
+        
+        if not channel:
+            return await interaction.response.send_message("❌ Kanał eventowy nie istnieje lub jest błędnie skonfigurowany!", ephemeral=True)
+
+        embed = discord.Embed(
+            title=f"🎉 NOWY EVENT: {self.nazwa_gry.value}",
+            description="Zapraszamy wszystkich chętnych do wspólnej zabawy!",
+            color=discord.Color.gold(),
+            timestamp=datetime.now(timezone.utc)
+        )
+        embed.add_field(name="📅 Kiedy", value=self.data_godzina.value, inline=True)
+        embed.add_field(name="💰 Koszt", value=self.koszt.value, inline=True)
+        if self.opis.value:
+            embed.add_field(name="📝 Opis i szczegóły", value=self.opis.value, inline=False)
+        
+        embed.add_field(
+            name="🔔 Powiadomienia",
+            value=f"Zapisz się przyciskiem poniżej, aby otrzymać rolę {event_role.mention if event_role else ''} i powiadomienie przed startem!",
+            inline=False
+        )
+        embed.set_author(name=f"Organizator: {interaction.user.display_name}", icon_url=interaction.user.display_avatar.url if interaction.user.display_avatar else None)
+        embed.set_footer(text="KameleonEvent • Zapisz się przyciskiem poniżej!")
+
+        ping_text = event_role.mention if event_role else "@here"
+        await channel.send(content=f"🚀 **Wpadajcie na event!** {ping_text}", embed=embed, view=EventSignUpView())
+        await interaction.response.send_message("✅ Ogłoszenie o evencie zostało opublikowane!", ephemeral=True)
+
+
 # --- KLASY INTERFEJSU WIZYTÓWEK / OGŁOSZEŃ ---
 
 class EditAdvancedPostModal(discord.ui.Modal, title="Edycja Wizytówki"):
@@ -205,10 +304,49 @@ async def on_ready():
     print("BOT ONLINE TEST OK")
     print(f"Zalogowano jako {bot.user}")
 
+    # Rejestracja stałego widoku przycisków eventu (działa zawsze po restarcie bota)
+    bot.add_view(EventSignUpView())
+
     if not check_timeouts.is_running(): check_timeouts.start()
     if not update_member_status.is_running(): update_member_status.start()
     if not bump_timer_check.is_running(): bump_timer_check.start()
     if not cycle_info_channel.is_running(): cycle_info_channel.start()
+
+
+# --- KOMENDY EVENTOWE TEKSTOWE (!) ---
+
+@bot.command(name="stworz_event", aliases=["event"])
+async def stworz_event_cmd(ctx):
+    """Tworzy przycisk z wywołaniem formularza eventu."""
+    if ctx.author.id != OWNER_ID and not ctx.author.guild_permissions.administrator:
+        return await ctx.send("❌ Nie masz uprawnień do tworzenia eventów.")
+
+    await ctx.send("Kliknij poniższy przycisk, aby wypełnić formularz wydarzenia:", view=OpenEventModalView(), delete_after=60)
+    try:
+        await ctx.message.delete()
+    except Exception:
+        pass
+
+@bot.command(name="zakoncz_event")
+async def zakoncz_event_cmd(ctx):
+    """Zdejmuje rolę eventową wszystkim osobom po zakończeniu zabawy."""
+    if ctx.author.id != OWNER_ID and not ctx.author.guild_permissions.administrator:
+        return await ctx.send("❌ Brak uprawnień do tej komendy.")
+
+    role = ctx.guild.get_role(ROLE_EVENT_ID)
+    if not role:
+        return await ctx.send("❌ Nie znaleziono roli eventowej.")
+
+    count = 0
+    await ctx.send("⏳ Czyszczenie ról uczestników eventu...")
+    for member in role.members:
+        try:
+            await member.remove_roles(role)
+            count += 1
+        except Exception:
+            pass
+    
+    await ctx.send(f"✅ Event zakończony! Usunięto rolę **{role.name}** u **{count}** użytkowników.")
 
 
 @bot.event
@@ -305,15 +443,10 @@ async def on_message(message):
                     )
                     embed.set_thumbnail(url=author.display_avatar.url if author.display_avatar else None)
 
-                    # 1. Opis użytkownika
                     embed.add_field(name="💬 O mnie", value=clean_content, inline=False)
 
-                    # 2. Frazy kluczowe do wygryzania odpowiednich ról
                     plec_keywords = ["mężczyzna", "kobieta", "niebinarność"]
-                    
-                    # Poszerzone słowa kluczowe dla wieku (łapie różne rodzaje myślników/spacji)
                     wiek_keywords = ["13-15", "16-18", "19-24", "25+", "13–15", "16–18", "19–24", "13 - 15", "16 - 18", "19 - 24"]
-                    
                     status_keywords = ["singiel", "singielka", "w związku", "zajęty", "zajęta"]
                     wojewodztwo_keywords = [
                         "dolnośląskie", "kujawsko-pomorskie", "lubelskie", "lubuskie", 
@@ -327,15 +460,12 @@ async def on_message(message):
                     status_role = None
                     wojewodztwo_role = None
 
-                    # Skanowanie ról użytkownika
                     for r in author.roles:
                         r_name = r.name.lower()
                         
                         if not plec_role and any(k in r_name for k in plec_keywords):
                             plec_role = r.mention
-                        # Zaawansowane sprawdzanie wieku (np. jeśli rola zawiera zakresem wiekowym lub liczbę)
                         elif not wiek_role and (any(k in r_name for k in wiek_keywords) or re.search(r'\b(1[3-9]|[2-9][0-9])\b', r_name)):
-                            # Pomijamy role poziomów/kameleonów, by nie przypisać przypadkowo poziomu jako wieku
                             if "lvl" not in r_name and "poziom" not in r_name and "kameleon" not in r_name:
                                 wiek_role = r.mention
                         elif not status_role and any(k in r_name for k in status_keywords):
@@ -343,17 +473,12 @@ async def on_message(message):
                         elif not wojewodztwo_role and any(k in r_name for k in wojewodztwo_keywords):
                             wojewodztwo_role = r.mention
 
-                    # WYŚWIETLANIE PÓL W ŚCIŚLE ZDEFINIOWANEJ KOLEJNOŚCI (JEDNO POD DRUGIM):
-                    # 1. Płeć
                     if plec_role:
                         embed.add_field(name="👤 Płeć", value=plec_role, inline=False)
-                    # 2. Wiek (między Płcią a Statusem)
                     if wiek_role:
                         embed.add_field(name="🎂 Wiek", value=wiek_role, inline=False)
-                    # 3. Status
                     if status_role:
                         embed.add_field(name="❤️ Status", value=status_role, inline=False)
-                    # 4. Województwo
                     if wojewodztwo_role:
                         embed.add_field(name="📍 Województwo", value=wojewodztwo_role, inline=False)
 
