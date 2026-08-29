@@ -21,9 +21,10 @@ SCREENY_CHANNEL = 1515570115515650068
 LOG_CHANNEL_ID = 1521585275229442178
 INFO_CHANNEL_ID = 1542093397593030747
 
-# --- SKONFIGUROWANE ID DLA EVENTÓW ---
+# --- SKONFIGUROWANE ID DLA EVENTÓW I MODERACJI ---
 EVENT_CHANNEL_ID = 1543224283633811497  
 ROLE_EVENT_ID = 1543224655698075728     
+ROLE_MODERACJA_ID = 1525953762441822370
 
 STARTIT_BOT_ID = 572906387382861835
 LEVEL_ROLE_ID = 1519678728438026321
@@ -130,6 +131,14 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
+# --- POMOCNICZA FUNKCJA SPRAWDZAJĄCA UPRAWNIENIA ---
+def can_manage_events(user: discord.Member) -> bool:
+    if user.id == OWNER_ID or user.guild_permissions.administrator:
+        return True
+    mod_role = user.guild.get_role(ROLE_MODERACJA_ID)
+    return mod_role in user.roles if mod_role else False
+
+
 # --- KLASY INTERFEJSU EVENTÓW ---
 
 class EventSignUpView(discord.ui.View):
@@ -166,7 +175,7 @@ class OpenEventModalView(discord.ui.View):
 
     @discord.ui.button(label="📝 Otwórz formularz eventu", style=discord.ButtonStyle.primary)
     async def open_modal(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if interaction.user.id != OWNER_ID and not interaction.user.guild_permissions.administrator:
+        if not can_manage_events(interaction.user):
             return await interaction.response.send_message("❌ Brak uprawnień do tworzenia eventów.", ephemeral=True)
         await interaction.response.send_modal(CreateEventModal())
 
@@ -304,7 +313,7 @@ async def on_ready():
     print("BOT ONLINE TEST OK")
     print(f"Zalogowano jako {bot.user}")
 
-    # Rejestracja stałego widoku przycisków eventu (działa zawsze po restarcie bota)
+    # Rejestracja stałego widoku przycisków eventu
     bot.add_view(EventSignUpView())
 
     if not check_timeouts.is_running(): check_timeouts.start()
@@ -318,8 +327,19 @@ async def on_ready():
 @bot.command(name="stworz_event", aliases=["event"])
 async def stworz_event_cmd(ctx):
     """Tworzy przycisk z wywołaniem formularza eventu."""
-    if ctx.author.id != OWNER_ID and not ctx.author.guild_permissions.administrator:
+    # 1. Sprawdzenie uprawnień (Owner, Admin lub Rola Moderacji)
+    if not can_manage_events(ctx.author):
         return await ctx.send("❌ Nie masz uprawnień do tworzenia eventów.")
+
+    # 2. Ograniczenie do dedykowanego kanału eventowego
+    if ctx.channel.id != EVENT_CHANNEL_ID:
+        try:
+            await ctx.message.delete()
+        except Exception:
+            pass
+        event_channel = ctx.guild.get_channel(EVENT_CHANNEL_ID)
+        channel_mention = event_channel.mention if event_channel else "kanału eventowego"
+        return await ctx.send(f"⚠️ Tej komendy można używać wyłącznie na kanale {channel_mention}!", delete_after=10)
 
     await ctx.send("Kliknij poniższy przycisk, aby wypełnić formularz wydarzenia:", view=OpenEventModalView(), delete_after=60)
     try:
@@ -330,7 +350,7 @@ async def stworz_event_cmd(ctx):
 @bot.command(name="zakoncz_event")
 async def zakoncz_event_cmd(ctx):
     """Zdejmuje rolę eventową wszystkim osobom po zakończeniu zabawy."""
-    if ctx.author.id != OWNER_ID and not ctx.author.guild_permissions.administrator:
+    if not can_manage_events(ctx.author):
         return await ctx.send("❌ Brak uprawnień do tej komendy.")
 
     role = ctx.guild.get_role(ROLE_EVENT_ID)
