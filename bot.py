@@ -131,26 +131,56 @@ intents.voice_states = True
 bot = commands.Bot(command_prefix="!", intents=intents)
 
 
-# --- POMOCNICZA FUNKCJA SPRAWDZAJĄCA UPRAWNIENIA ---
+# --- POMOCNICZE FUNKCJE ---
+
 def can_manage_events(user: discord.Member) -> bool:
     if user.id == OWNER_ID or user.guild_permissions.administrator:
         return True
     mod_role = user.guild.get_role(ROLE_MODERACJA_ID)
     return mod_role in user.roles if mod_role else False
 
+def parse_event_datetime(date_str: str) -> datetime:
+    """Konwertuje tekst daty na obiekt datetime."""
+    date_str = date_str.strip()
+    now = datetime.now()
+    
+    # 1. Sam czas dzisiaj np. "20:00" lub "8:30"
+    if re.match(r'^\d{1,2}:\d{2}$', date_str):
+        h, m = map(int, date_str.split(':'))
+        dt = now.replace(hour=h, minute=m, second=0, microsecond=0)
+        if dt < now:
+            dt += timedelta(days=1)
+        return dt
+
+    # 2. Pełna data np. "25.10.2026 20:00" lub "25.10 20:00"
+    formats = [
+        "%d.%m.%Y %H:%M", "%d.%m.%Y %H:%M:%S",
+        "%d.%m %H:%M", "%d/%m/%Y %H:%M", "%Y-%m-%d %H:%M"
+    ]
+    for fmt in formats:
+        try:
+            dt = datetime.strptime(date_str, fmt)
+            if dt.year == 1900:
+                dt = dt.replace(year=now.year)
+            return dt
+        except ValueError:
+            continue
+    return None
+
 
 # --- KLASY INTERFEJSU EVENTÓW ---
 
 class EventSignUpView(discord.ui.View):
-    def __init__(self, author_id: int = None):
+    def __init__(self, author_id: int = None, target_timestamp: int = None):
         super().__init__(timeout=None)
         self.author_id = author_id
+        self.target_timestamp = target_timestamp
 
     @discord.ui.button(label="Zapisz się 🙋", style=discord.ButtonStyle.success, custom_id="event_signup_btn")
     async def sign_up(self, interaction: discord.Interaction, button: discord.ui.Button):
         role = interaction.guild.get_role(ROLE_EVENT_ID)
         if not role:
-            return await interaction.response.send_message("❌ Rola eventowa nie została odnaleziona w systemie!", ephemeral=True)
+            return await interaction.response.send_message("❌ Rola eventowa nie została odnaleziona!", ephemeral=True)
 
         if role in interaction.user.roles:
             await interaction.response.send_message("ℹ️ Jesteś już zapisany/a na ten event!", ephemeral=True)
@@ -162,7 +192,7 @@ class EventSignUpView(discord.ui.View):
     async def sign_out(self, interaction: discord.Interaction, button: discord.ui.Button):
         role = interaction.guild.get_role(ROLE_EVENT_ID)
         if not role:
-            return await interaction.response.send_message("❌ Rola eventowa nie została odnaleziona w systemie!", ephemeral=True)
+            return await interaction.response.send_message("❌ Rola eventowa nie została odnaleziona!", ephemeral=True)
 
         if role in interaction.user.roles:
             await interaction.user.remove_roles(role)
@@ -172,16 +202,99 @@ class EventSignUpView(discord.ui.View):
 
     @discord.ui.button(label="🔔 Przypomnij (@Wydarzenia)", style=discord.ButtonStyle.secondary, custom_id="event_ping_btn")
     async def manual_ping(self, interaction: discord.Interaction, button: discord.ui.Button):
-        # Tylko autor eventu lub moderator może ręcznie pingować
         if self.author_id and interaction.user.id != self.author_id and not can_manage_events(interaction.user):
             return await interaction.response.send_message("❌ Tylko organizator eventu lub moderator może użyć tego przycisku!", ephemeral=True)
 
         role = interaction.guild.get_role(ROLE_EVENT_ID)
         role_ping = role.mention if role else "@here"
         
-        # Wysłanie powiadomienia na czat
-        await interaction.channel.send(f"🔔 **PRZYPOMNIENIE O EVENTOWYM SPOTKANIU!** {role_ping}\nZapraszamy do dołączenia!")
+        remaining_str = ""
+        if self.target_timestamp:
+            now_ts = int(time.time())
+            if self.target_timestamp > now_ts:
+                remaining_str = f"\n⏳ **Pozostały czas do startu:** <t:{self.target_timestamp}:R> (<t:{self.target_timestamp}:t>)"
+            else:
+                remaining_str = "\n🔥 **Event właśnie się rozpoczyna lub trwa!**"
+
+        await interaction.channel.send(
+            f"🔔 **PRZYPOMNIENIE O EVENTOWYM SPOTKANIU!** {role_ping}\n"
+            f"Zapraszamy do dołączenia!{remaining_str}"
+        )
         await interaction.response.send_message("✅ Przypomnienie zostało wysłane!", ephemeral=True)
+
+    @discord.ui.button(label="✏️ Edytuj event", style=discord.ButtonStyle.primary, custom_id="event_edit_btn")
+    async def edit_event(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if self.author_id and interaction.user.id != self.author_id and not can_manage_events(interaction.user):
+            return await interaction.response.send_message("❌ Tylko organizator lub moderator może edytować to wydarzenie!", ephemeral=True)
+
+        await interaction.response.send_modal(EditEventModal(interaction.message))
+
+
+class EditEventModal(discord.ui.Modal, title="Edytuj Event"):
+    def __init__(self, target_message: discord.Message):
+        super().__init__()
+        self.target_message = target_message
+        
+        embed = target_message.embeds[0] if target_message.embeds else None
+        
+        title_val = embed.title.replace("🎉 NOWY EVENT: ", "").strip() if embed and embed.title else ""
+        kiedy_val = ""
+        koszt_val = "Darmowa"
+        opis_val = ""
+
+        if embed:
+            for field in embed.fields:
+                if field.name == "📅 Kiedy":
+                    kiedy_val = field.value.split("\n⏳")[0]
+                elif field.name == "💰 Koszt":
+                    koszt_val = field.value
+                elif field.name == "📝 Opis i szczegóły":
+                    opis_val = field.value
+
+        self.nazwa_gry = discord.ui.TextInput(label="Nazwa gry / wydarzenia", default=title_val, required=True)
+        self.data_godzina = discord.ui.TextInput(label="Data i godzina (np. 25.10.2026 20:00)", default=kiedy_val, placeholder="DD.MM.YYYY HH:MM lub sama godzina 20:00", required=True)
+        self.koszt = discord.ui.TextInput(label="Koszt gry", default=koszt_val, required=True)
+        self.opis = discord.ui.TextInput(label="Dodatkowy opis / zasady", style=discord.TextStyle.paragraph, default=opis_val, required=False)
+
+        self.add_item(self.nazwa_gry)
+        self.add_item(self.data_godzina)
+        self.add_item(self.koszt)
+        self.add_item(self.opis)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        embed = self.target_message.embeds[0]
+        embed.title = f"🎉 NOWY EVENT: {self.nazwa_gry.value}"
+        
+        parsed_dt = parse_event_datetime(self.data_godzina.value)
+        target_ts = int(parsed_dt.timestamp()) if parsed_dt else None
+        
+        kiedy_text = self.data_godzina.value
+        if target_ts:
+            kiedy_text += f"\n⏳ **Start:** <t:{target_ts}:R> (<t:{target_ts}:t>)"
+
+        new_fields = []
+        new_fields.append({"name": "📅 Kiedy", "value": kiedy_text, "inline": True})
+        new_fields.append({"name": "💰 Koszt", "value": self.koszt.value, "inline": True})
+        if self.opis.value:
+            new_fields.append({"name": "📝 Opis i szczegóły", "value": self.opis.value, "inline": False})
+        
+        event_role = interaction.guild.get_role(ROLE_EVENT_ID)
+        new_fields.append({
+            "name": "🔔 Powiadomienia",
+            "value": f"Zapisz się przyciskiem poniżej, aby otrzymać rolę {event_role.mention if event_role else ''} i powiadomienie!",
+            "inline": False
+        })
+
+        embed.clear_fields()
+        for f in new_fields:
+            embed.add_field(name=f["name"], value=f["value"], inline=f["inline"])
+
+        author_id = interaction.user.id
+        view = EventSignUpView(author_id=author_id, target_timestamp=target_ts)
+
+        await self.target_message.edit(embed=embed, view=view)
+        await interaction.response.send_message("✅ Zaktualizowano dane eventu!", ephemeral=True)
+
 
 class OpenEventModalView(discord.ui.View):
     def __init__(self):
@@ -193,6 +306,7 @@ class OpenEventModalView(discord.ui.View):
             return await interaction.response.send_message("❌ Brak uprawnień do tworzenia eventów.", ephemeral=True)
         await interaction.response.send_modal(CreateEventModal())
 
+
 class CreateEventModal(discord.ui.Modal, title="Stwórz Nowy Event"):
     nazwa_gry = discord.ui.TextInput(
         label="Nazwa gry / wydarzenia",
@@ -200,14 +314,9 @@ class CreateEventModal(discord.ui.Modal, title="Stwórz Nowy Event"):
         required=True
     )
     data_godzina = discord.ui.TextInput(
-        label="Data i godzina (opisowo)",
-        placeholder="np. Dzisiaj / Piątek o 20:00",
+        label="Data i godzina startu",
+        placeholder="np. 25.10.2026 20:00 (lub sama godzina: 20:00)",
         required=True
-    )
-    czas_minuty = discord.ui.TextInput(
-        label="Za ile minut start? (do odliczania)",
-        placeholder="np. 30 (wpisz samą liczbę minut, np. 15, 60)",
-        required=False
     )
     koszt = discord.ui.TextInput(
         label="Koszt gry",
@@ -227,17 +336,11 @@ class CreateEventModal(discord.ui.Modal, title="Stwórz Nowy Event"):
         event_role = interaction.guild.get_role(ROLE_EVENT_ID)
         
         if not channel:
-            return await interaction.response.send_message("❌ Kanał eventowy nie istnieje lub jest błędnie skonfigurowany!", ephemeral=True)
+            return await interaction.response.send_message("❌ Kanał eventowy nie istnieje!", ephemeral=True)
 
-        # Odliczanie czasu
-        target_timestamp = None
-        delay_seconds = 0
-
-        if self.czas_minuty.value and self.czas_minuty.value.isdigit():
-            minutes = int(self.czas_minuty.value)
-            if minutes > 0:
-                delay_seconds = minutes * 60
-                target_timestamp = int(time.time()) + delay_seconds
+        parsed_dt = parse_event_datetime(self.data_godzina.value)
+        target_timestamp = int(parsed_dt.timestamp()) if parsed_dt else None
+        delay_seconds = (parsed_dt - datetime.now()).total_seconds() if parsed_dt else 0
 
         embed = discord.Embed(
             title=f"🎉 NOWY EVENT: {self.nazwa_gry.value}",
@@ -265,13 +368,10 @@ class CreateEventModal(discord.ui.Modal, title="Stwórz Nowy Event"):
 
         ping_text = event_role.mention if event_role else "@here"
         
-        # Rejestracja widoku z ID autora do ręcznego pingowania
-        view = EventSignUpView(author_id=interaction.user.id)
-        
+        view = EventSignUpView(author_id=interaction.user.id, target_timestamp=target_timestamp)
         event_msg = await channel.send(content=f"🚀 **Wpadajcie na event!** {ping_text}", embed=embed, view=view)
         await interaction.response.send_message("✅ Ogłoszenie o evencie zostało opublikowane!", ephemeral=True)
 
-        # Asynchroniczne odliczanie w tle i ping po upływie czasu
         if delay_seconds > 0:
             async def auto_ping_task():
                 await asyncio.sleep(delay_seconds)
@@ -366,7 +466,6 @@ async def on_ready():
     print("BOT ONLINE TEST OK")
     print(f"Zalogowano jako {bot.user}")
 
-    # Rejestracja stałego widoku przycisków eventu
     bot.add_view(EventSignUpView())
 
     if not check_timeouts.is_running(): check_timeouts.start()
@@ -393,7 +492,6 @@ async def stworz_event_cmd(ctx):
         channel_mention = event_channel.mention if event_channel else "kanału eventowego"
         return await ctx.author.send(f"⚠️ Komendy `!stworz_event` możesz używać wyłącznie na kanale {channel_mention}!")
 
-    # Wyłanie przycisku widocznego dla każdego (znika po 60 sekundach)
     await ctx.send("Oto formularz wydarzenia (kliknij poniższy przycisk):", view=OpenEventModalView(), delete_after=60)
 
 @bot.command(name="zakoncz_event")
@@ -411,7 +509,6 @@ async def zakoncz_event_cmd(ctx):
     if not role:
         return await ctx.author.send("❌ Nie znaleziono roli eventowej.")
 
-    # Status czyszczenia wysyłany bezpośrednio do autora
     status_msg = await ctx.author.send("⏳ Czyszczenie ról uczestników eventu... Proszę czekać.")
 
     count = 0
@@ -474,7 +571,6 @@ async def on_message(message):
             user_id = message.author.id
             cooldown_key = (user_id, message.channel.id)
             
-            # Cooldown 1 godzina
             if cooldown_key in post_cooldowns:
                 elapsed = now - post_cooldowns[cooldown_key]
                 if elapsed < 3600:
@@ -497,7 +593,6 @@ async def on_message(message):
                 if target_role:
                     clean_content = clean_content.replace(target_role.mention, '').strip()
 
-                # --- KANAŁ 1: SZUKAM ZNAJOMYCH (PROFILOWA WIZYTÓWKA) ---
                 if is_znajomi_channel:
                     await message.delete()
                     post_cooldowns[cooldown_key] = now
@@ -566,7 +661,6 @@ async def on_message(message):
                     view = AdvancedPostView(author_id=author.id, voice_channel_url=None)
                     await message.channel.send(content=ping_text, embed=embed, view=view)
 
-                # --- KANAŁ 2: SZUKAM DO GRY (WYMAGANY KANAŁ GŁOSOWY) ---
                 else:
                     voice_state = author.voice
                     if not voice_state or not voice_state.channel:
